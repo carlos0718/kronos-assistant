@@ -22,13 +22,12 @@ class DemoListener:
 
 
 class DemoResponder:
-    def __init__(self, step_seconds: float, reply: str = DEMO_REPLY) -> None:
+    def __init__(self, step_seconds: float) -> None:
         self._step = step_seconds
-        self._reply = reply
 
     async def respond(self, text: str) -> AsyncIterator[str]:
         await asyncio.sleep(self._step)
-        yield self._reply
+        yield DEMO_REPLY
 
 
 class DemoSpeaker:
@@ -37,6 +36,20 @@ class DemoSpeaker:
 
     async def speak(self, text: str) -> None:
         await asyncio.sleep(self._step)
+
+
+class SilentSpeaker:
+    """No suena: espera lo que tardaría en decirse la frase.
+
+    PROVISORIO: hasta que llegue la voz, deja la respuesta en pantalla el
+    tiempo suficiente para leerla.
+    """
+
+    def __init__(self, seconds_per_character: float = 0.06) -> None:
+        self._pace = seconds_per_character
+
+    async def speak(self, text: str) -> None:
+        await asyncio.sleep(len(text) * self._pace)
 
 
 def demo_pipeline(step_seconds: float = 2.0) -> Pipeline:
