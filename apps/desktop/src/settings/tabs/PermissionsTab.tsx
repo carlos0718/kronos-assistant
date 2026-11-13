@@ -3,9 +3,21 @@ import "./PermissionsTab.css";
 
 const PERMISSION_LEVELS = [
   { level: "Normal", tone: "ok", text: "Abrir apps, buscar archivos, volumen, recordatorios. No exige nada." },
-  { level: "Delicado", tone: "warn", text: "Comandos de terminal, borrar archivos, enviar mensajes. Pide confirmación por voz o clic." },
-  { level: "Crítico", tone: "danger", text: "Protecciones del sistema, registro, instalar programas, usuarios. Exige la clave secreta." },
-  { level: "Prohibido", tone: "off", text: "Formatear discos, borrados masivos, leer credenciales. No se ejecuta nunca." },
+  {
+    level: "Delicado",
+    tone: "warn",
+    text: "Comandos de terminal, borrar archivos, enviar mensajes. Pide confirmación por voz o clic.",
+  },
+  {
+    level: "Crítico",
+    tone: "danger",
+    text: "Protecciones del sistema, registro, instalar programas, usuarios. Exige la clave secreta.",
+  },
+  {
+    level: "Prohibido",
+    tone: "off",
+    text: "Formatear discos, borrados masivos, leer credenciales. No se ejecuta nunca.",
+  },
 ];
 
 export function PermissionsTab() {

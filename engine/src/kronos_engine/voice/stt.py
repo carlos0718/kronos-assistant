@@ -2,6 +2,7 @@
 
 import asyncio
 import threading
+from typing import Any
 
 import numpy as np
 
@@ -17,13 +18,14 @@ class WhisperStt:
     def __init__(self, model_size: str = "small", language: str | None = "es") -> None:
         self._model_size = model_size
         self._language = language
-        self._model = None
+        # Any: faster-whisper no publica tipos.
+        self._model: Any = None
         self._lock = threading.Lock()
 
     def preload(self) -> None:
         threading.Thread(target=self._load, daemon=True).start()
 
-    def _load(self):
+    def _load(self) -> Any:
         with self._lock:
             if self._model is None:
                 # Se importa acá porque tarda: así no demora el arranque del motor.

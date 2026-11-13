@@ -15,7 +15,6 @@ import json
 import os
 import secrets
 import socket
-import sys
 import threading
 
 import uvicorn
@@ -81,4 +80,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

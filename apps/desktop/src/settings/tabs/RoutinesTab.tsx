@@ -6,7 +6,10 @@ export function RoutinesTab() {
   return (
     <>
       <Group title="Rutinas">
-        <Row label="Rutinas creadas" text="Se crean por voz, desde esta pantalla, desde el calendario o en un archivo de texto.">
+        <Row
+          label="Rutinas creadas"
+          text="Se crean por voz, desde esta pantalla, desde el calendario o en un archivo de texto."
+        >
           <Value>Ninguna</Value>
         </Row>
       </Group>

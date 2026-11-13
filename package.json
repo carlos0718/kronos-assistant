@@ -11,6 +11,13 @@
     "engine:dev": "uv run --project engine kronos-engine",
     "engine:test": "uv run --project engine pytest engine/tests",
     "engine:lint": "uv run --project engine ruff check engine",
+    "engine:format": "uv run --project engine ruff format --check engine",
+    "engine:types": "uv run --directory engine mypy",
+    "engine:layers": "uv run --directory engine lint-imports",
+    "desktop:lint": "pnpm --filter @kronos/desktop lint",
+    "desktop:rust": "cargo fmt --check --manifest-path apps/desktop/src-tauri/Cargo.toml && cargo clippy --locked --all-targets --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings && cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "size:check": "node scripts/check-size.mjs",
+    "check": "pnpm engine:lint && pnpm engine:format && pnpm engine:types && pnpm engine:layers && pnpm engine:test && pnpm desktop:lint && pnpm --filter @kronos/desktop build && pnpm desktop:rust && pnpm version:check && pnpm size:check",
     "version:set": "node scripts/version.mjs",
     "version:check": "node scripts/version.mjs --check"
   }

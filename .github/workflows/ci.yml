@@ -14,6 +14,8 @@ concurrency:
 permissions:
   contents: read
 
+# Los nombres de los jobs son chequeos obligatorios en la protección de dev y
+# main: si se cambian acá, hay que cambiarlos también en GitHub.
 jobs:
   motor:
     name: Motor (ruff y pytest)
@@ -23,6 +25,9 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
       - run: uv sync --project engine --locked
       - run: uv run --project engine ruff check engine
+      - run: uv run --project engine ruff format --check engine
+      - run: uv run --directory engine mypy
+      - run: uv run --directory engine lint-imports
       - run: uv run --project engine pytest engine/tests
 
   interfaz:
@@ -37,6 +42,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm version:check
+      - run: pnpm size:check
+      - run: pnpm --filter @kronos/desktop lint
       - run: pnpm --filter @kronos/desktop build
 
   escritorio:
@@ -50,13 +57,17 @@ jobs:
           node-version: 24
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
       # Tauri necesita la interfaz compilada (apps/desktop/dist) para compilar.
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @kronos/desktop build
-      - run: cargo check --locked
+      - run: cargo fmt --check
+        working-directory: apps/desktop/src-tauri
+      - run: cargo clippy --locked --all-targets -- -D warnings
         working-directory: apps/desktop/src-tauri
       - run: cargo test --locked
         working-directory: apps/desktop/src-tauri

@@ -32,7 +32,9 @@ fn place_bottom_center(window: &WebviewWindow) -> tauri::Result<()> {
 /// Muestra el overlay y le avisa a la interfaz que el usuario invocó a Kronos.
 /// La interfaz decide: si está inactivo, empieza a escuchar; si no, lo corta.
 pub fn summon(app: &AppHandle) {
-    let Some(window) = app.get_webview_window(LABEL) else { return };
+    let Some(window) = app.get_webview_window(LABEL) else {
+        return;
+    };
     if let Err(e) = place_bottom_center(&window).and_then(|()| window.show()) {
         eprintln!("No se pudo mostrar el overlay: {e}");
         return;

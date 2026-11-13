@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { useEffect, useRef, useState } from "react";
 import { STATE_LABEL, useEngine } from "../engine/useEngine";
 import { Orb } from "../shared/Orb";
 import "./Overlay.css";
@@ -34,6 +34,7 @@ export function Overlay() {
   }, [send]);
 
   // Se oculta solo cuando no queda nada que mostrar.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `summons` reinicia la cuenta si se lo invoca sin que cambie el estado.
   useEffect(() => {
     if (state !== "idle" && state !== "disconnected") {
       setLeaving(false);
@@ -46,7 +47,6 @@ export function Overlay() {
       clearTimeout(fade);
       clearTimeout(hide);
     };
-    // `summons` reinicia la cuenta si se lo invoca sin que cambie el estado.
   }, [state, summons]);
 
   const hasText = Boolean(transcript || reply || error);

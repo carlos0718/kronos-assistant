@@ -1,6 +1,6 @@
 # Cómo se trabaja en Kronos AI Assistant
 
-Este documento fija el flujo de trabajo: ramas, commits, versiones y pruebas.
+Este documento fija el flujo de trabajo: ramas, commits, versiones y pruebas. Cómo se escribe el código (tamaño de los archivos, capas, nombres) está en [docs/CODIGO.md](docs/CODIGO.md).
 
 ## Ramas
 
@@ -85,9 +85,7 @@ En permisos y seguridad un error es grave y un test lo detecta barato. En lo vis
 Antes de abrir un pull request, y de nuevo de forma automática en GitHub:
 
 ```
-pnpm engine:lint                       # ruff
-pnpm engine:test                       # tests del motor
-pnpm --filter @kronos/desktop build    # TypeScript y Vite
-pnpm version:check                     # la versión coincide en todos los archivos
-cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+pnpm check
 ```
+
+Corre todos los chequeos: estilo, formato, tipos, capas, tests, tamaño de los archivos y versión. El detalle de cada uno, y cómo correrlos por separado, está en [docs/CODIGO.md](docs/CODIGO.md#8-chequeos).

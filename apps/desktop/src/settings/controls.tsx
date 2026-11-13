@@ -34,13 +34,7 @@ export function Value({ children }: { children: ReactNode }) {
 
 export function Toggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      className="toggle"
-      onClick={() => onChange(!checked)}
-    />
+    <button type="button" role="switch" aria-checked={checked} className="toggle" onClick={() => onChange(!checked)} />
   );
 }
 
