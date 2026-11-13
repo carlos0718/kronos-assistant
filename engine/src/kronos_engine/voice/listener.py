@@ -34,10 +34,12 @@ class VoiceListener:
         self._stt = stt
         self._config = config or EndpointConfig()
 
-    async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
+    async def listen(
+        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+    ) -> str | None:
         audio = await self._capture()
         if audio is None:
-            return ""
+            return None
         # El micrófono ya está cerrado: transcribir puede tardar un momento.
         if on_speech_end:
             await on_speech_end()

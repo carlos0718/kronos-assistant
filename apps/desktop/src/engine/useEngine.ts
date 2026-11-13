@@ -36,19 +36,15 @@ export function useEngine() {
         return;
       }
       switch (message.type) {
-        case "state_changed": {
-          const next = message.payload.state;
+        case "state_changed":
           setError(null);
-          setState(next);
-          // Cada vez que empieza a escuchar arranca un intercambio nuevo.
-          if (next === "listening") {
-            setTranscript("");
-            setReply("");
-          }
+          setState(message.payload.state);
           break;
-        }
         case "transcript_final":
+          // Empieza un intercambio nuevo. Hasta acá se sigue viendo la respuesta
+          // anterior, mientras Kronos escucha por si el usuario sigue.
           setTranscript(message.payload.text);
+          setReply("");
           break;
         case "assistant_delta":
           setReply((current) => current + message.payload.text);
@@ -105,5 +101,11 @@ export function useEngine() {
     return true;
   }, []);
 
-  return { state, transcript, reply, error, send };
+  /** Borra lo dicho: lo usa el overlay al ocultarse o al empezar otra conversación. */
+  const clear = useCallback(() => {
+    setTranscript("");
+    setReply("");
+  }, []);
+
+  return { state, transcript, reply, error, send, clear };
 }

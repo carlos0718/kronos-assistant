@@ -12,6 +12,7 @@ nunca queda huérfano aunque la app se cierre de golpe.
 """
 
 import json
+import logging
 import os
 import secrets
 import socket
@@ -53,6 +54,10 @@ def _exit_when_closed(fd: int) -> None:
 
 
 def main() -> None:
+    # Va a la salida de error: la estándar queda para el aviso de arranque.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s motor: %(message)s", datefmt="%H:%M:%S"
+    )
     token = os.environ.get(TOKEN_ENV)
     ready: dict[str, object] = {"protocol": PROTOCOL_VERSION, "version": __version__}
     if not token:
