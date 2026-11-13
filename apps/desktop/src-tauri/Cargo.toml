@@ -1,6 +1,6 @@
 [package]
 name = "kronos-desktop"
-version = "0.4.1"
+version = "0.5.0"
 description = "Kronos AI Assistant: app de escritorio"
 license = "GPL-3.0-or-later"
 edition = "2024"

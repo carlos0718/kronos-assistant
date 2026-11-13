@@ -1,0 +1,25 @@
+/* Lista de voces: cada fila tiene un botón para probarla y otro para usarla. */
+.voice-actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+
+.voice-btn {
+  min-width: 74px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.82rem;
+  color: var(--muted) !important;
+}
+.voice-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text) !important;
+}
+.voice-btn[aria-pressed="true"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--violet), var(--indigo));
+  color: var(--text) !important;
+}
