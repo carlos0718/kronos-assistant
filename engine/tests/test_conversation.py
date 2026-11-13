@@ -127,6 +127,26 @@ def test_si_el_usuario_sigue_hablando_la_conversacion_continua() -> None:
     ]
 
 
+def test_si_ya_se_oyo_el_pedido_responde_sin_volver_a_escuchar() -> None:
+    # Al llamarlo por su nombre el usuario ya dijo lo que quería.
+    async def scenario() -> tuple[list[tuple[str, str]], list[str]]:
+        responder = FakeResponder(["Las tres."])
+        conversation, recorder = build(listener=FakeListener("Gracias"), responder=responder)
+        await conversation.activate("¿Qué hora es?")
+        await conversation.wait()
+        return recorder.events, responder.asked
+
+    events, asked = asyncio.run(scenario())
+    assert asked == ["¿Qué hora es?", "Gracias"]
+    assert events[:5] == [
+        ("transcript_final", "¿Qué hora es?"),
+        ("state_changed", "thinking"),
+        ("state_changed", "speaking"),
+        ("assistant_delta", "Las tres."),
+        ("state_changed", "listening"),
+    ]
+
+
 def test_pasa_a_pensando_apenas_se_deja_de_escuchar() -> None:
     # Mientras se transcribe el micrófono ya está cerrado: no debe decir "escuchando".
     async def scenario() -> list[tuple[str, str]]:

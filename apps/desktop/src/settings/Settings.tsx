@@ -75,7 +75,7 @@ export function Settings() {
 
           {error && <p className="panel-error">{error}</p>}
 
-          {tab === "general" && <GeneralTab state={state} connected={connected} busy={busy} onSummon={summon} />}
+          {tab === "general" && <GeneralTab state={state} connection={connection} busy={busy} onSummon={summon} />}
           {tab === "modelo" && <ModelTab />}
           {tab === "voz" && <VoiceTab connection={connection} />}
           {tab === "permisos" && <PermissionsTab />}

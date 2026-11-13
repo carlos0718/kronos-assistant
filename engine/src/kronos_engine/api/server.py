@@ -13,9 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.api.hub import Hub, message
 from kronos_engine.api.voices import voices_router
+from kronos_engine.api.wake import wake_router
 from kronos_engine.core.conversation import Pipeline
-from kronos_engine.core.demo import DemoVoices, demo_pipeline
+from kronos_engine.core.demo import DemoVoices, DemoWakeWord, demo_pipeline
 from kronos_engine.core.protocol import ClientMessage, ServerMessage
+from kronos_engine.core.standby import Standby
 from kronos_engine.core.voices import VoiceControl
 
 # Código de cierre de WebSocket para "política violada" (token inválido).
@@ -33,17 +35,26 @@ UI_ORIGINS = [
 
 
 def create_app(
-    token: str, pipeline: Pipeline | None = None, voices: VoiceControl | None = None
+    token: str,
+    pipeline: Pipeline | None = None,
+    voices: VoiceControl | None = None,
+    standby: Standby | None = None,
 ) -> FastAPI:
-    """Crea el servidor. Sin `pipeline` o sin `voices` usa las piezas simuladas."""
-    app = FastAPI(title="Kronos Engine", version=__version__, docs_url=None, redoc_url=None)
+    """Crea el servidor. Las piezas que no se le pasan son las simuladas."""
+    hub = Hub(pipeline or demo_pipeline(), standby or Standby(DemoWakeWord()))
+    app = FastAPI(
+        title="Kronos Engine",
+        version=__version__,
+        docs_url=None,
+        redoc_url=None,
+        lifespan=hub.lifespan,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=UI_ORIGINS,
         allow_methods=["GET", "PUT", "POST"],
         allow_headers=["Authorization", "Content-Type"],
     )
-    hub = Hub(pipeline or demo_pipeline())
 
     def token_ok(candidate: str | None) -> bool:
         return candidate is not None and secrets.compare_digest(candidate, token)
@@ -54,6 +65,7 @@ def create_app(
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token inválido")
 
     app.include_router(voices_router(voices or DemoVoices(), require_token))
+    app.include_router(wake_router(hub.standby, require_token))
 
     @app.get("/health", dependencies=[Depends(require_token)])
     def health() -> dict[str, Any]:

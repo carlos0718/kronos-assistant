@@ -1,5 +1,7 @@
 """Estado del asistente compartido por todas las ventanas conectadas."""
 
+import contextlib
+from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -7,6 +9,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.core.conversation import Conversation, Pipeline
 from kronos_engine.core.protocol import AssistantState, ServerMessage
+from kronos_engine.core.standby import Standby
 
 
 def message(type_: ServerMessage, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -15,10 +18,22 @@ def message(type_: ServerMessage, payload: dict[str, Any] | None = None) -> dict
 
 
 class Hub:
-    def __init__(self, pipeline: Pipeline) -> None:
+    def __init__(self, pipeline: Pipeline, standby: Standby) -> None:
         self.state = AssistantState.IDLE
         self._clients: set[WebSocket] = set()
         self.conversation = Conversation(pipeline, self.set_state, self.emit)
+        self.standby = standby
+        # Oír el nombre empieza una conversación, igual que el atajo.
+        standby.connect(self.conversation.activate)
+
+    @contextlib.asynccontextmanager
+    async def lifespan(self, _app: object) -> AsyncIterator[None]:
+        """Lo que dura el servidor: Kronos arranca inactivo y ya puede esperar su nombre."""
+        self.standby.resume()
+        try:
+            yield
+        finally:
+            self.standby.pause()
 
     async def join(self, websocket: WebSocket) -> None:
         self._clients.add(websocket)
@@ -41,4 +56,9 @@ class Hub:
 
     async def set_state(self, state: AssistantState) -> None:
         self.state = state
+        # El nombre solo se espera en reposo: al conversar, el micrófono es de la conversación.
+        if state is AssistantState.IDLE:
+            self.standby.resume()
+        else:
+            self.standby.pause()
         await self.emit(ServerMessage.STATE_CHANGED, {"state": state})

@@ -101,7 +101,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 | Detección de voz | `VAD` | Silero (ONNX) | Otro detector |
 | Voz a texto | `STT` | faster-whisper | whisper.cpp u otro |
 | Texto a voz | `TTS` | Piper | Kokoro, otras voces o motores |
-| Palabra de activación | `WakeWord` | openWakeWord | Otro detector |
+| Palabra de activación | `WakeWord` | whisper: transcribe y busca «Kronos» | Un detector entrenado (openWakeWord, livekit-wakeword) |
 | Modelo de lenguaje | `LLMProvider` | Ollama, Anthropic, OpenAI | Gemini, OpenRouter, "Sign in with ChatGPT" |
 | Acciones | `Tool` | Apps, archivos, sistema, terminal | Nuevos plugins |
 | Calendario | `CalendarProvider` | Google Calendar | `.ics`/CalDAV, Outlook, Notion |
@@ -181,5 +181,5 @@ Acción propuesta ──► Clasificar nivel ──┬─ Nivel 1 ──► Ejec
 | **Notificaciones de Windows** | La API para leerlas puede exigir que la app esté empaquetada con identidad (MSIX) | Antes de la fase 5 |
 | **SQLCipher + PyInstaller** | La base de datos cifrada debe empaquetarse bien en el ejecutable | Fase 0 o 3 |
 | **Peso del instalador** | Las librerías de voz pueden engordarlo; el objetivo es una app liviana, sin PyTorch | Fase 1 |
-| **Palabra de activación propia** | "Kronos" requiere entrenar un modelo de openWakeWord para español e inglés | Fase 6 |
+| **Palabra de activación propia** | La versión con whisper gasta CPU cada vez que alguien habla cerca. Un detector entrenado para "Kronos" (openWakeWord solo cubre inglés; livekit-wakeword admite español pero se entrena con GPU NVIDIA o Mac) lo evitaría | Después de medir el consumo |
 | **Latencia del bucle de voz** | Si la respuesta tarda, la conversación deja de sentirse natural | Fase 1, con modelo en la nube y con modelo local |

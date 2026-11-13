@@ -28,6 +28,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             engine::engine_status,
             overlay::summon_overlay,
+            overlay::show_overlay,
             overlay::hide_overlay
         ])
         .setup(|app| {

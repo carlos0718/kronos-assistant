@@ -70,10 +70,14 @@ class Conversation:
         self._emit = emit
         self._turn: asyncio.Task[None] | None = None
 
-    async def activate(self) -> None:
-        """Empieza una conversación. Si había una en curso, la reemplaza."""
+    async def activate(self, heard: str = "") -> None:
+        """Empieza una conversación. Si había una en curso, la reemplaza.
+
+        `heard` es lo que el usuario ya dijo al llamar a Kronos por su nombre:
+        se responde a eso sin volver a escuchar.
+        """
         await self.cancel()
-        self._turn = asyncio.create_task(self._run())
+        self._turn = asyncio.create_task(self._run(heard.strip()))
 
     async def cancel(self) -> None:
         """Corta la conversación en curso, si la hay."""
@@ -97,21 +101,23 @@ class Conversation:
         # El micrófono ya se cerró: la interfaz deja de mostrar "escuchando".
         await self._set_state(AssistantState.THINKING)
 
-    async def _run(self) -> None:
+    async def _run(self, heard: str) -> None:
         error: str | None = None
         try:
+            text: str | None = heard or await self._listen()
             # Después de responder vuelve a escuchar, por si el usuario sigue.
             # La conversación termina cuando nadie habla.
-            while (text := await self._listen()) is not None:
-                if not text:
+            while text is not None:
+                if text:
+                    # No se registra lo que se dijo, solo cuánto: puede ser privado.
+                    log.info("Frase entendida (%d caracteres); responde el modelo.", len(text))
+                    await self._emit(ServerMessage.TRANSCRIPT_FINAL, {"text": text})
+                    await self._set_state(AssistantState.THINKING)
+                    await self._reply(text)
+                else:
                     # Un ruido o algo que no se pudo transcribir: sigue escuchando.
                     log.info("Se oyó algo que no se entendió; sigue escuchando.")
-                    continue
-                # No se registra lo que se dijo, solo cuánto: puede ser privado.
-                log.info("Frase entendida (%d caracteres); responde el modelo.", len(text))
-                await self._emit(ServerMessage.TRANSCRIPT_FINAL, {"text": text})
-                await self._set_state(AssistantState.THINKING)
-                await self._reply(text)
+                text = await self._listen()
             log.info("Nadie habló; termina la conversación.")
         except Exception as exc:  # noqa: BLE001 - cualquier fallo se le informa al usuario.
             error = str(exc) or type(exc).__name__

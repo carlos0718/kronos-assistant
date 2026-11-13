@@ -29,22 +29,34 @@ fn place_bottom_center(window: &WebviewWindow) -> tauri::Result<()> {
     window.set_position(PhysicalPosition::new(x, y))
 }
 
+/// Muestra el overlay en su lugar. Devuelve la ventana si se pudo mostrar.
+fn show(app: &AppHandle) -> Option<WebviewWindow> {
+    let window = app.get_webview_window(LABEL)?;
+    if let Err(e) = place_bottom_center(&window).and_then(|()| window.show()) {
+        eprintln!("No se pudo mostrar el overlay: {e}");
+        return None;
+    }
+    Some(window)
+}
+
 /// Muestra el overlay y le avisa a la interfaz que el usuario invocó a Kronos.
 /// La interfaz decide: si está inactivo, empieza a escuchar; si no, lo corta.
 pub fn summon(app: &AppHandle) {
-    let Some(window) = app.get_webview_window(LABEL) else {
-        return;
-    };
-    if let Err(e) = place_bottom_center(&window).and_then(|()| window.show()) {
-        eprintln!("No se pudo mostrar el overlay: {e}");
-        return;
+    if let Some(window) = show(app) {
+        let _ = window.emit_to(LABEL, SUMMON_EVENT, ());
     }
-    let _ = window.emit_to(LABEL, SUMMON_EVENT, ());
 }
 
 #[tauri::command]
 pub fn summon_overlay(app: AppHandle) {
     summon(&app);
+}
+
+/// Muestra el overlay sin invocar a Kronos: lo pide la interfaz cuando el
+/// motor empezó una conversación por su cuenta (oyó su nombre).
+#[tauri::command]
+pub fn show_overlay(app: AppHandle) {
+    show(&app);
 }
 
 #[tauri::command]

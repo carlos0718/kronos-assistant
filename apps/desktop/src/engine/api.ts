@@ -38,3 +38,13 @@ export async function selectVoice(connection: Connection, id: string): Promise<v
 export async function previewVoice(connection: Connection, id: string): Promise<void> {
   await request(connection, `/voices/${encodeURIComponent(id)}/preview`, { method: "POST" });
 }
+
+/** Si Kronos escucha su nombre para activarse. */
+export async function getWakeWord(connection: Connection): Promise<boolean> {
+  const body: { enabled: boolean } = await (await request(connection, "/wake-word")).json();
+  return body.enabled;
+}
+
+export async function setWakeWord(connection: Connection, enabled: boolean): Promise<void> {
+  await request(connection, "/wake-word", { method: "PUT", body: JSON.stringify({ enabled }) });
+}

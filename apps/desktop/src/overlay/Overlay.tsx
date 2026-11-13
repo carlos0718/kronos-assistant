@@ -38,6 +38,15 @@ export function Overlay() {
     };
   }, [send, clear]);
 
+  // Kronos también empieza por su cuenta, al oír su nombre: el overlay
+  // aparece aunque nadie lo haya invocado con el atajo.
+  const wasActive = useRef(false);
+  useEffect(() => {
+    const active = state !== "idle" && state !== "disconnected";
+    if (active && !wasActive.current) invoke("show_overlay");
+    wasActive.current = active;
+  }, [state]);
+
   // Se oculta solo cuando no queda nada que mostrar.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `summons` reinicia la cuenta si se lo invoca sin que cambie el estado.
   useEffect(() => {
