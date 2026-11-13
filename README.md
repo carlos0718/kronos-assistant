@@ -4,7 +4,7 @@
 >
 > Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **Fase 1 en curso (v0.6.0).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. Falta medir latencia y consumo.
+> Estado: **Fase 1 en curso (v0.7.0).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. Falta medir latencia y consumo.
 
 ## La idea
 

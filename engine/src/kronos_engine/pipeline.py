@@ -4,7 +4,8 @@ import os
 from dataclasses import dataclass
 
 from kronos_engine.core.conversation import Pipeline
-from kronos_engine.core.demo import DemoVoices, DemoWakeWord, demo_pipeline
+from kronos_engine.core.demo import DemoProfile, DemoVoices, DemoWakeWord, demo_pipeline
+from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.voices import VoiceControl
 
@@ -31,15 +32,17 @@ class Parts:
     pipeline: Pipeline
     voices: VoiceControl
     standby: Standby
+    profile: ProfileControl
 
 
 def build() -> Parts:
     if os.environ.get(PIPELINE_ENV) == "demo":
-        return Parts(demo_pipeline(), DemoVoices(), Standby(DemoWakeWord()))
+        return Parts(demo_pipeline(), DemoVoices(), Standby(DemoWakeWord()), DemoProfile())
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
-    from kronos_engine.agent.instructions import INSTRUCTIONS
+    from kronos_engine.agent.instructions import instructions_for
     from kronos_engine.agent.responder import AgentResponder
+    from kronos_engine.config.profile import StoredProfile
     from kronos_engine.config.settings import SettingsStore
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
     from kronos_engine.voice.catalog import DEFAULT_VOICES
@@ -69,9 +72,16 @@ def build() -> Parts:
     )
     model.preload()
 
+    profile = StoredProfile(store)
+
+    def current_instructions() -> str:
+        # Se lee en cada respuesta: el usuario puede cambiar su perfil sin reiniciar.
+        saved = profile.get()
+        return instructions_for(saved.name, saved.about)
+
     pipeline = Pipeline(
         listener=VoiceListener(open_microphone, SileroVad(), stt),
-        responder=AgentResponder(model, INSTRUCTIONS),
+        responder=AgentResponder(model, current_instructions),
         speaker=VoiceSpeaker(tts, play),
     )
 
@@ -83,4 +93,4 @@ def build() -> Parts:
         remember=lambda enabled: store.update(wake_word=enabled),
     )
     voices = PiperVoices(tts, PiperTts, play, lambda voice: store.update(voice=voice))
-    return Parts(pipeline, voices, standby)
+    return Parts(pipeline, voices, standby, profile)

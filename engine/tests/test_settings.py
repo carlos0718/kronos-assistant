@@ -16,6 +16,15 @@ def test_lo_que_se_guarda_se_vuelve_a_leer(tmp_path: Path) -> None:
     assert path.read_text(encoding="utf-8") == 'voice = "es_ES-davefx-medium"\nwake_word = false\n'
 
 
+def test_el_perfil_se_guarda_y_se_vuelve_a_leer(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path / "config.toml")
+
+    about = "Programo. Me gusta correr."
+    store.update(user_name="Carlos", user_about=about)
+
+    assert store.load() == Settings(user_name="Carlos", user_about=about)
+
+
 def test_un_archivo_roto_no_impide_arrancar(tmp_path: Path) -> None:
     path = tmp_path / "config.toml"
     path.write_text("esto no es TOML [[[", encoding="utf-8")
