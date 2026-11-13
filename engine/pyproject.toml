@@ -1,6 +1,6 @@
 [project]
 name = "kronos-engine"
-version = "0.3.0"
+version = "0.4.0"
 description = "Motor de Kronos AI Assistant: voz, LLM, herramientas, permisos y memoria."
 authors = [
     { name = "carlos0718", email = "62729276+carlos0718@users.noreply.github.com" }
@@ -11,6 +11,7 @@ dependencies = [
     "faster-whisper>=1.2.1",
     "httpx>=0.28.1",
     "numpy>=2.5.4",
+    "piper-tts>=1.8.0",
     "sounddevice>=0.5.6",
     "uvicorn>=0.54.0",
     "websockets>=17.4",
@@ -59,7 +60,7 @@ files = ["src", "tests"]
 
 # Librerías de voz que no publican tipos.
 [[tool.mypy.overrides]]
-module = ["faster_whisper.*", "onnxruntime.*", "sounddevice.*"]
+module = ["faster_whisper.*", "onnxruntime.*", "piper.*", "sounddevice.*"]
 ignore_missing_imports = true
 
 # Qué paquete del motor puede importar a cuál. De arriba hacia abajo: cada

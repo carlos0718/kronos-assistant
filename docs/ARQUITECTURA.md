@@ -100,7 +100,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 |---|---|---|---|
 | Detección de voz | `VAD` | Silero (ONNX) | Otro detector |
 | Voz a texto | `STT` | faster-whisper | whisper.cpp u otro |
-| Texto a voz | `TTS` | Piper / Kokoro | Otras voces o motores |
+| Texto a voz | `TTS` | Piper | Kokoro, otras voces o motores |
 | Palabra de activación | `WakeWord` | openWakeWord | Otro detector |
 | Modelo de lenguaje | `LLMProvider` | Ollama, Anthropic, OpenAI | Gemini, OpenRouter, "Sign in with ChatGPT" |
 | Acciones | `Tool` | Apps, archivos, sistema, terminal | Nuevos plugins |

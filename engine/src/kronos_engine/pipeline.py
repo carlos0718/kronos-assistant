@@ -3,7 +3,7 @@
 import os
 
 from kronos_engine.core.conversation import Pipeline
-from kronos_engine.core.demo import SilentSpeaker, demo_pipeline
+from kronos_engine.core.demo import demo_pipeline
 
 # KRONOS_PIPELINE=demo usa las piezas simuladas, sin micrófono ni modelos.
 PIPELINE_ENV = "KRONOS_PIPELINE"
@@ -16,10 +16,10 @@ DEFAULT_MODEL = "qwen3:8b"
 # Dónde escucha Ollama, si no es la dirección por defecto.
 OLLAMA_URL_ENV = "KRONOS_OLLAMA_URL"
 
-# Espera máxima a que el usuario hable. PROVISORIO: sin voz, Kronos vuelve a
-# escuchar mientras el usuario todavía lee la respuesta, así que hace falta
-# más margen que los 8 segundos normales. Con la voz vuelve al valor normal.
-START_TIMEOUT_MS = 20_000
+# Voz de Piper con la que habla. PROVISORIO: irá en la configuración.
+VOICE_ENV = "KRONOS_VOICE"
+# Voz por defecto según el idioma.
+DEFAULT_VOICES = {"es": "es_AR-daniela-high", "en": "en_US-lessac-medium"}
 
 
 def build_pipeline() -> Pipeline:
@@ -30,23 +30,28 @@ def build_pipeline() -> Pipeline:
     from kronos_engine.agent.instructions import INSTRUCTIONS
     from kronos_engine.agent.responder import AgentResponder
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
-    from kronos_engine.voice.endpointing import EndpointConfig
     from kronos_engine.voice.listener import VoiceListener
     from kronos_engine.voice.microphone import open_microphone
+    from kronos_engine.voice.playback import play
+    from kronos_engine.voice.speaker import VoiceSpeaker
     from kronos_engine.voice.stt import WhisperStt
+    from kronos_engine.voice.tts import PiperTts
     from kronos_engine.voice.vad import SileroVad
 
-    stt = WhisperStt(language=os.environ.get(LANGUAGE_ENV, "es"))
-    stt.preload()  # Carga el modelo mientras el usuario todavía no habló.
+    language = os.environ.get(LANGUAGE_ENV, "es")
+    # Los tres modelos se cargan mientras el usuario todavía no habló.
+    stt = WhisperStt(language=language)
+    stt.preload()
+    voice = os.environ.get(VOICE_ENV) or DEFAULT_VOICES.get(language, DEFAULT_VOICES["es"])
+    tts = PiperTts(voice)
+    tts.preload()
     model = OllamaProvider(
         os.environ.get(MODEL_ENV, DEFAULT_MODEL),
         base_url=os.environ.get(OLLAMA_URL_ENV, DEFAULT_URL),
     )
     model.preload()
     return Pipeline(
-        listener=VoiceListener(
-            open_microphone, SileroVad(), stt, EndpointConfig(start_timeout_ms=START_TIMEOUT_MS)
-        ),
+        listener=VoiceListener(open_microphone, SileroVad(), stt),
         responder=AgentResponder(model, INSTRUCTIONS),
-        speaker=SilentSpeaker(),
+        speaker=VoiceSpeaker(tts, play),
     )
