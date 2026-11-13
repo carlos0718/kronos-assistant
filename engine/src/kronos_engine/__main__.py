@@ -30,10 +30,25 @@ TOKEN_ENV = "KRONOS_TOKEN"
 PARENT_WATCH_ENV = "KRONOS_PARENT_WATCH"
 
 
-def _exit_when_stdin_closes() -> None:
+def _take_over_stdin() -> int:
+    """Se queda con la entrada estándar y deja una vacía en su lugar.
+
+    En Windows, mientras un hilo espera datos en la entrada estándar, cualquier
+    librería nativa que la consulte al cargarse se queda colgada (les pasa a
+    las de voz). Por eso el vigilante lee de una copia privada.
+    """
+    private = os.dup(0)
+    null = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(null, 0)
+    os.close(null)
+    return private
+
+
+def _exit_when_closed(fd: int) -> None:
     try:
-        while sys.stdin.buffer.read(1024):
-            pass
+        with os.fdopen(fd, "rb", buffering=0) as parent:
+            while parent.read(1024):
+                pass
     finally:
         os._exit(0)
 
@@ -47,7 +62,8 @@ def main() -> None:
         ready["dev_token"] = token
 
     if os.environ.get(PARENT_WATCH_ENV) == "1":
-        threading.Thread(target=_exit_when_stdin_closes, daemon=True).start()
+        watched = _take_over_stdin()
+        threading.Thread(target=_exit_when_closed, args=(watched,), daemon=True).start()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((HOST, 0))  # Puerto 0: el sistema elige uno libre.
