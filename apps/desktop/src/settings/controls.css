@@ -1,0 +1,184 @@
+/* Controles de las pestañas: grupos, filas, interruptores y deslizadores. */
+.group h2 {
+  margin: 0 0 14px;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+.group-hint {
+  margin-left: 12px;
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.group p {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+/* --- Deslizadores --- */
+.slider {
+  padding-left: 8px;
+}
+.slider + .slider {
+  margin-top: 16px;
+}
+.slider-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.slider-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.slider-body {
+  flex: 1;
+  min-width: 0;
+}
+.slider-range {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.slider-value {
+  width: 40px;
+  flex: none;
+  padding: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.slider input[type="range"] {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--violet) 0,
+    var(--accent) var(--pct),
+    rgba(196, 181, 253, 0.2) var(--pct)
+  );
+}
+.slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 26px;
+  height: 15px;
+  margin-top: -6px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  /* dos rayitas en el centro del tirador */
+  background:
+    linear-gradient(var(--accent), var(--accent)) 10px 50% / 1.5px 6px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) 14px 50% / 1.5px 6px no-repeat,
+    #08070d;
+}
+
+/* --- Filas de opciones: texto a la izquierda, control a la derecha --- */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-left: 8px;
+  font-size: 0.9rem;
+}
+.row + .row,
+.slider + .row,
+.row + .slider {
+  margin-top: 14px;
+}
+.row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.row-text small {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.value {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  border: 0;
+  border-radius: 11px;
+  background: var(--surface-2);
+  transition: background 0.2s ease;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.toggle[aria-checked="true"] {
+  background: linear-gradient(135deg, var(--violet), var(--indigo));
+}
+.toggle[aria-checked="true"]::after {
+  transform: translateX(18px);
+  background: var(--text);
+}
+
+.segmented {
+  flex: none;
+  display: flex;
+  padding: 3px;
+  border-radius: 8px;
+  background: #08070d;
+}
+.segmented button {
+  padding: 5px 13px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.segmented button[aria-checked="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+}

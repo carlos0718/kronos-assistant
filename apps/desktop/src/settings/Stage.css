@@ -1,0 +1,151 @@
+/* Escenario: la columna izquierda, con la bolita, el medidor y el micrófono. */
+.stage {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stage-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+}
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.icon-btn:hover {
+  color: var(--text);
+}
+.chip {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: 9px;
+  background: #08070d;
+  font-size: 0.82rem;
+}
+.chip-label {
+  margin-right: 8px;
+  color: var(--muted);
+}
+
+.stage-orb {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-left: 48px; /* deja lugar al medidor */
+}
+.stage-orb .orb {
+  width: min(72%, 300px);
+  height: auto;
+}
+.stage-floor {
+  width: 46%;
+  height: 16px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.32), transparent);
+  filter: blur(6px);
+}
+.stage-state {
+  margin: 14px 0 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+/* Medidor vertical: por ahora refleja el estado, no el audio real. */
+.meter {
+  position: absolute;
+  left: 0;
+  bottom: 62px;
+  width: 50px;
+  height: 46%;
+  padding: 16px 0;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  border-radius: 9px 9px 0 0;
+  background: #08070d;
+}
+.meter-track {
+  position: relative;
+  width: 10px;
+  height: 100%;
+  /* marcas horizontales, como una regla */
+  background: repeating-linear-gradient(to bottom, rgba(196, 181, 253, 0.28) 0 1px, transparent 1px 6px);
+}
+.meter-fill {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 4%;
+  background: repeating-linear-gradient(to bottom, var(--accent) 0 1px, transparent 1px 6px),
+    linear-gradient(to top, var(--indigo), var(--violet));
+  transition: height 0.35s ease;
+}
+.meter[data-state="listening"] .meter-fill {
+  animation: meter-voice 0.9s ease-in-out infinite;
+}
+.meter[data-state="speaking"] .meter-fill {
+  animation: meter-voice 1.3s ease-in-out infinite;
+}
+.meter[data-state="thinking"] .meter-fill {
+  height: 12%;
+}
+@keyframes meter-voice {
+  0%,
+  100% {
+    height: 18%;
+  }
+  25% {
+    height: 62%;
+  }
+  50% {
+    height: 34%;
+  }
+  75% {
+    height: 78%;
+  }
+}
+
+.mic-btn {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 50px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 9px 9px;
+  background: #08070d;
+}
+.mic-btn .icon {
+  box-sizing: content-box;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+.mic-btn:hover:not(:disabled) .icon {
+  background: var(--violet);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill {
+    animation: none !important;
+  }
+}
