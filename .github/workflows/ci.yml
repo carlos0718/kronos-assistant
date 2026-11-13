@@ -1,0 +1,62 @@
+# Chequeos que deben pasar antes de mergear a dev o a main.
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  motor:
+    name: Motor (ruff y pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --project engine --locked
+      - run: uv run --project engine ruff check engine
+      - run: uv run --project engine pytest engine/tests
+
+  interfaz:
+    name: Interfaz (TypeScript y versiones)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm version:check
+      - run: pnpm --filter @kronos/desktop build
+
+  escritorio:
+    name: Escritorio (Rust en Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      # Tauri necesita la interfaz compilada (apps/desktop/dist) para compilar.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @kronos/desktop build
+      - run: cargo check --locked
+        working-directory: apps/desktop/src-tauri
+      - run: cargo test --locked
+        working-directory: apps/desktop/src-tauri

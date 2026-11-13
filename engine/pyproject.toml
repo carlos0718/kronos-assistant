@@ -1,0 +1,34 @@
+[project]
+name = "kronos-engine"
+version = "0.1.0"
+description = "Motor de Kronos AI Assistant: voz, LLM, herramientas, permisos y memoria."
+authors = [
+    { name = "carlos0718", email = "62729276+carlos0718@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.5",
+    "uvicorn>=0.54.0",
+    "websockets>=17.4",
+]
+
+[project.scripts]
+kronos-engine = "kronos_engine.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pyinstaller>=6.22.3",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

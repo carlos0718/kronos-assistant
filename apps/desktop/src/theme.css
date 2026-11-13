@@ -1,0 +1,40 @@
+/* Identidad visual de Kronos. Detalle en docs/DISENO.md. */
+:root {
+  color-scheme: dark;
+
+  --violet: #7c5cff;
+  --indigo: #4f46e5;
+  --accent: #c4b5fd;
+  --bg: #0f0e17;
+  --surface: #1a1826;
+  --surface-2: #262338;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --border: rgba(196, 181, 253, 0.16);
+  --text: #f2f1f8;
+  --muted: #a5a1b8;
+  --error: #f87171;
+
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  color: var(--text);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* El overlay es una ventana transparente: solo se ven la bolita y la burbuja. */
+html[data-window="overlay"],
+html[data-window="overlay"] body {
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+
+html[data-window="settings"] body {
+  background: var(--bg);
+}

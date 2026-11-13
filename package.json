@@ -1,0 +1,17 @@
+{
+  "name": "kronos-assistant",
+  "private": true,
+  "version": "0.1.0",
+  "license": "GPL-3.0-or-later",
+  "packageManager": "pnpm@12.18.0",
+  "scripts": {
+    "desktop:dev": "pnpm --filter @kronos/desktop tauri dev",
+    "desktop:build": "pnpm engine:build && pnpm --filter @kronos/desktop tauri build --config src-tauri/tauri.bundle.conf.json",
+    "engine:build": "uv run --project engine python engine/scripts/build.py",
+    "engine:dev": "uv run --project engine kronos-engine",
+    "engine:test": "uv run --project engine pytest engine/tests",
+    "engine:lint": "uv run --project engine ruff check engine",
+    "version:set": "node scripts/version.mjs",
+    "version:check": "node scripts/version.mjs --check"
+  }
+}

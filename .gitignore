@@ -1,0 +1,45 @@
+# --- Sistema y editores ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# --- Secretos y configuración local ---
+.env
+.env.*
+!.env.example
+
+# --- Node (apps/desktop, apps/landing) ---
+node_modules/
+dist/
+.astro/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- Rust / Tauri (apps/desktop/src-tauri) ---
+target/
+apps/desktop/src-tauri/gen/schemas/
+# Binarios del motor que PyInstaller copia como sidecar
+apps/desktop/src-tauri/binaries/
+
+# --- Python (engine) ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+# Salida de PyInstaller
+engine/build/
+engine/dist/
+
+# --- Datos locales del asistente ---
+*.db
+*.db-shm
+*.db-wal
+logs/
+models/
