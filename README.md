@@ -4,7 +4,7 @@
 >
 > Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **Fase 0 completa (v0.1.0).** Hay esqueleto, interfaz e instalador de Windows; el asistente todavía no conversa: la voz llega en la Fase 1.
+> Estado: **Fase 1 en curso (v0.6.0).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. Falta medir latencia y consumo.
 
 ## La idea
 
@@ -126,7 +126,7 @@ Cada calendario es un **plugin** con la misma interfaz (leer eventos, crear, mod
 
 ### Activación
 - **Atajo de teclado** global.
-- **Palabra o frase de activación** (wake word, p. ej. con openWakeWord).
+- **Palabra de activación «Kronos»** (opcional, desde la configuración). Por ahora el motor transcribe con whisper lo que se dice cerca del micrófono y busca el nombre, sin entrenar ningún modelo; todo ocurre en el equipo y no se guarda nada. Más adelante se puede cambiar por un detector entrenado para esa sola palabra (openWakeWord o similar), que gasta menos.
 - **Activación automática** (configurable) para leer notificaciones o recordatorios en voz alta.
 
 ### Autonomía
@@ -329,7 +329,7 @@ Construcción, según las fases del documento de arquitectura:
 - [ ] **Fase 3:** memoria persistente cifrada.
 - [ ] **Fase 4:** rutinas, "avisar y esperar" y Google Calendar.
 - [ ] **Fase 5:** lectura de notificaciones de apps elegidas.
-- [ ] **Fase 6:** palabra de activación "Kronos", asistente de configuración inicial y modo híbrido. Elegir los modelos locales a recomendar.
+- [ ] **Fase 6:** asistente de configuración inicial y modo híbrido (la palabra de activación «Kronos» se adelantó a la Fase 1). Elegir los modelos locales a recomendar.
 - [ ] **Fase 7:** GitHub Actions para Windows, macOS y Linux, firma y landing page.
 
 Gestiones aparte, sin urgencia:

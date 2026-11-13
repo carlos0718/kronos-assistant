@@ -1,19 +1,51 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { type Connection, getWakeWord, setWakeWord } from "../../engine/api";
 import { type AssistantState, STATE_LABEL } from "../../engine/useEngine";
 import { Group, Row, Segmented, Toggle } from "../controls";
 import { Icon } from "../icons";
 import "./GeneralTab.css";
 
-type Props = { state: AssistantState; connected: boolean; busy: boolean; onSummon: () => void };
+type Props = {
+  state: AssistantState;
+  connection: Connection | null;
+  busy: boolean;
+  onSummon: () => void;
+};
 
-export function GeneralTab({ state, connected, busy, onSummon }: Props) {
+export function GeneralTab({ state, connection, busy, onSummon }: Props) {
+  const connected = state !== "disconnected";
+  const [wakeWord, setWakeWordShown] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Valores de muestra: todavía no se guardan ni llegan al motor.
   const [language, setLanguage] = useState("Español");
-  const [wakeWord, setWakeWord] = useState(false);
   const [autoActivate, setAutoActivate] = useState(false);
+
+  useEffect(() => {
+    if (!connection) return;
+    let stale = false;
+    getWakeWord(connection)
+      .then((enabled) => !stale && setWakeWordShown(enabled))
+      .catch((e) => !stale && setError(String(e.message ?? e)));
+    return () => {
+      stale = true;
+    };
+  }, [connection]);
+
+  async function toggleWakeWord(enabled: boolean) {
+    if (!connection) return;
+    setError(null);
+    try {
+      await setWakeWord(connection, enabled);
+      setWakeWordShown(enabled);
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+    }
+  }
 
   return (
     <>
+      {error && <p className="panel-error">{error}</p>}
+
       <Group title="Probar a Kronos" hint="hacé clic en el botón para hablarle">
         <div className="tester">
           <button
@@ -45,8 +77,11 @@ export function GeneralTab({ state, connected, busy, onSummon }: Props) {
             <kbd>K</kbd>
           </span>
         </Row>
-        <Row label='Palabra de activación "Kronos"' text="Kronos escucha su nombre para activarse.">
-          <Toggle checked={wakeWord} onChange={setWakeWord} />
+        <Row
+          label='Palabra de activación "Kronos"'
+          text="Decí «Kronos» y tu pedido. El micrófono queda abierto, pero nada de lo que oye sale de tu equipo ni se guarda."
+        >
+          <Toggle checked={wakeWord} onChange={toggleWakeWord} disabled={!connection} />
         </Row>
         <Row
           label="Activación automática"

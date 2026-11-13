@@ -46,6 +46,14 @@ class DemoSpeaker:
             await asyncio.sleep(self._step)
 
 
+class DemoWakeWord:
+    """Nunca oye su nombre: el interruptor se puede usar, pero no activa nada."""
+
+    async def wait(self) -> str:
+        await asyncio.Event().wait()
+        return ""
+
+
 class DemoVoices:
     """Dos voces de mentira: se pueden elegir, pero no suenan."""
 

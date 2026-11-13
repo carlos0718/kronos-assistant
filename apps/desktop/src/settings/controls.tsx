@@ -32,9 +32,18 @@ export function Value({ children }: { children: ReactNode }) {
   return <span className="value">{children}</span>;
 }
 
-export function Toggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+type ToggleProps = { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean };
+
+export function Toggle({ checked, onChange, disabled }: ToggleProps) {
   return (
-    <button type="button" role="switch" aria-checked={checked} className="toggle" onClick={() => onChange(!checked)} />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      className="toggle"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+    />
   );
 }
 

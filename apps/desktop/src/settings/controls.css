@@ -159,6 +159,9 @@
   transform: translateX(18px);
   background: var(--text);
 }
+.toggle:disabled {
+  opacity: 0.5;
+}
 
 .segmented {
   flex: none;
