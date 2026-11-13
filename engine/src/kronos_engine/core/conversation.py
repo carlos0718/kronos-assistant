@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from kronos_engine.core.protocol import AssistantState, ServerMessage
 from kronos_engine.core.sentences import SentenceSplitter
 
 
@@ -42,15 +43,15 @@ class Pipeline:
     speaker: Speaker
 
 
-SetState = Callable[[str], Awaitable[None]]
-Emit = Callable[[str, dict[str, Any]], Awaitable[None]]
+SetState = Callable[[AssistantState], Awaitable[None]]
+Emit = Callable[[ServerMessage, dict[str, Any]], Awaitable[None]]
 
 
 class Conversation:
     def __init__(self, pipeline: Pipeline, set_state: SetState, emit: Emit) -> None:
         self._pipeline = pipeline
         self._notify_state = set_state
-        self._state = "idle"
+        self._state = AssistantState.IDLE
         self._emit = emit
         self._turn: asyncio.Task[None] | None = None
 
@@ -72,31 +73,31 @@ class Conversation:
         if self._turn:
             await self._turn
 
-    async def _set_state(self, state: str) -> None:
+    async def _set_state(self, state: AssistantState) -> None:
         if state != self._state:
             self._state = state
             await self._notify_state(state)
 
     async def _stop_listening(self) -> None:
         # El micrófono ya se cerró: la interfaz deja de mostrar "escuchando".
-        await self._set_state("thinking")
+        await self._set_state(AssistantState.THINKING)
 
     async def _run_turn(self) -> None:
         error: str | None = None
         try:
-            await self._set_state("listening")
+            await self._set_state(AssistantState.LISTENING)
             text = (await self._pipeline.listener.listen(self._stop_listening)).strip()
             if text:
-                await self._emit("transcript_final", {"text": text})
-                await self._set_state("thinking")
+                await self._emit(ServerMessage.TRANSCRIPT_FINAL, {"text": text})
+                await self._set_state(AssistantState.THINKING)
                 await self._reply(text)
         except Exception as exc:  # noqa: BLE001 - cualquier fallo se le informa al usuario.
             error = str(exc) or type(exc).__name__
         finally:
-            await self._set_state("idle")
+            await self._set_state(AssistantState.IDLE)
         # Va después del estado: la interfaz borra el error al cambiar de estado.
         if error:
-            await self._emit("error", {"message": error})
+            await self._emit(ServerMessage.ERROR, {"message": error})
 
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.
@@ -108,8 +109,8 @@ class Conversation:
             async for delta in self._pipeline.responder.respond(text):
                 if not started:
                     started = True
-                    await self._set_state("speaking")
-                await self._emit("assistant_delta", {"text": delta})
+                    await self._set_state(AssistantState.SPEAKING)
+                await self._emit(ServerMessage.ASSISTANT_DELTA, {"text": delta})
                 for sentence in splitter.feed(delta):
                     sentences.put_nowait(sentence)
             if rest := splitter.flush():

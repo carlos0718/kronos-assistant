@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { PROTOCOL_VERSION, type ClientMessage, type EngineState, type ServerMessage } from "./protocol";
 
-// Estados del asistente, según el protocolo motor ↔ interfaz.
-export type AssistantState = "disconnected" | "idle" | "listening" | "thinking" | "speaking";
+// Lo que muestra la interfaz: los estados del motor, más "sin conexión".
+export type AssistantState = EngineState | "disconnected";
 
 export const STATE_LABEL: Record<AssistantState, string> = {
   disconnected: "Motor sin conectar",
@@ -13,15 +14,11 @@ export const STATE_LABEL: Record<AssistantState, string> = {
   speaking: "Hablando",
 };
 
-const PROTOCOL_VERSION = 1;
-
 // Lo que informa la parte Rust de la app sobre el proceso del motor.
 type EngineStatus =
   | { status: "starting" }
   | { status: "ready"; port: number; token: string }
   | { status: "failed"; message: string };
-
-type EngineMessage = { v: number; type: string; payload: Record<string, unknown> };
 
 export function useEngine() {
   const [state, setState] = useState<AssistantState>("disconnected");
@@ -33,15 +30,14 @@ export function useEngine() {
   useEffect(() => {
     let disposed = false;
 
-    function handle(message: EngineMessage) {
+    function handle(message: ServerMessage) {
       if (message.v !== PROTOCOL_VERSION) {
         setError(`Versión de protocolo no compatible: ${message.v}`);
         return;
       }
-      const { payload } = message;
       switch (message.type) {
         case "state_changed": {
-          const next = payload.state as AssistantState;
+          const next = message.payload.state;
           setError(null);
           setState(next);
           // Cada vez que empieza a escuchar arranca un intercambio nuevo.
@@ -51,15 +47,14 @@ export function useEngine() {
           }
           break;
         }
-        case "transcript_partial":
         case "transcript_final":
-          setTranscript(String(payload.text ?? ""));
+          setTranscript(message.payload.text);
           break;
         case "assistant_delta":
-          setReply((current) => current + String(payload.text ?? ""));
+          setReply((current) => current + message.payload.text);
           break;
         case "error":
-          setError(String(payload.message ?? "Error del motor."));
+          setError(message.payload.message);
           break;
       }
     }
@@ -69,7 +64,7 @@ export function useEngine() {
       const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(token)}`);
       socketRef.current = socket;
 
-      socket.onmessage = (event) => handle(JSON.parse(event.data) as EngineMessage);
+      socket.onmessage = (event) => handle(JSON.parse(event.data) as ServerMessage);
       socket.onerror = () => {
         if (!disposed) setError("No se pudo conectar con el motor.");
       };
@@ -103,7 +98,7 @@ export function useEngine() {
   }, []);
 
   /** Envía un mensaje al motor. Devuelve false si no hay conexión. */
-  const send = useCallback((type: string, payload: Record<string, unknown> = {}) => {
+  const send = useCallback((type: ClientMessage, payload: Record<string, unknown> = {}) => {
     const socket = socketRef.current;
     if (socket?.readyState !== WebSocket.OPEN) return false;
     socket.send(JSON.stringify({ v: PROTOCOL_VERSION, type, payload }));

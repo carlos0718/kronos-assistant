@@ -7,58 +7,16 @@ arrancarlo. El servidor solo escucha en 127.0.0.1.
 import secrets
 from typing import Any
 
-from fastapi import (
-    Depends,
-    FastAPI,
-    Header,
-    HTTPException,
-    WebSocket,
-    WebSocketDisconnect,
-    status,
-)
+from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, status
 
 from kronos_engine import PROTOCOL_VERSION, __version__
-from kronos_engine.core.conversation import Conversation, Pipeline
+from kronos_engine.api.hub import Hub, message
+from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.demo import demo_pipeline
+from kronos_engine.core.protocol import ClientMessage, ServerMessage
 
 # Código de cierre de WebSocket para "política violada" (token inválido).
 WS_POLICY_VIOLATION = 1008
-
-
-def message(type_: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Arma un mensaje del protocolo motor ↔ interfaz."""
-    return {"v": PROTOCOL_VERSION, "type": type_, "payload": payload or {}}
-
-
-class Hub:
-    """Estado del asistente compartido por todas las ventanas conectadas."""
-
-    def __init__(self, pipeline: Pipeline) -> None:
-        self.state = "idle"
-        self._clients: set[WebSocket] = set()
-        self.conversation = Conversation(pipeline, self.set_state, self.emit)
-
-    async def join(self, websocket: WebSocket) -> None:
-        self._clients.add(websocket)
-        await websocket.send_json(message("hello", {"engine_version": __version__}))
-        await websocket.send_json(message("state_changed", {"state": self.state}))
-
-    def leave(self, websocket: WebSocket) -> None:
-        self._clients.discard(websocket)
-
-    async def broadcast(self, msg: dict[str, Any]) -> None:
-        for client in list(self._clients):
-            try:
-                await client.send_json(msg)
-            except (RuntimeError, WebSocketDisconnect):  # La ventana ya se cerró.
-                self._clients.discard(client)
-
-    async def emit(self, type_: str, payload: dict[str, Any]) -> None:
-        await self.broadcast(message(type_, payload))
-
-    async def set_state(self, state: str) -> None:
-        self.state = state
-        await self.emit("state_changed", {"state": state})
 
 
 def create_app(token: str, pipeline: Pipeline | None = None) -> FastAPI:
@@ -90,13 +48,13 @@ def create_app(token: str, pipeline: Pipeline | None = None) -> FastAPI:
         try:
             async for incoming in websocket.iter_json():
                 type_ = incoming.get("type") if isinstance(incoming, dict) else None
-                if type_ == "activate":
+                if type_ == ClientMessage.ACTIVATE:
                     await hub.conversation.activate()
-                elif type_ == "cancel":
+                elif type_ == ClientMessage.CANCEL:
                     await hub.conversation.cancel()
                 else:
                     error = {"message": f"Mensaje no reconocido: {type_!r}"}
-                    await websocket.send_json(message("error", error))
+                    await websocket.send_json(message(ServerMessage.ERROR, error))
         finally:
             hub.leave(websocket)
 
