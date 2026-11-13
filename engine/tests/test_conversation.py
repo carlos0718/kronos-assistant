@@ -1,18 +1,26 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 from kronos_engine.core.conversation import Conversation, Pipeline
 
 
 class FakeListener:
-    def __init__(self, text: str = "¿Qué hora es?", wait: asyncio.Event | None = None) -> None:
+    def __init__(
+        self,
+        text: str = "¿Qué hora es?",
+        wait: asyncio.Event | None = None,
+        announces_speech_end: bool = False,
+    ) -> None:
         self._text = text
         self._wait = wait
+        self._announces_speech_end = announces_speech_end
 
-    async def listen(self) -> str:
+    async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
         if self._wait:
             await self._wait.wait()
+        if self._announces_speech_end and on_speech_end:
+            await on_speech_end()
         return self._text
 
 
@@ -81,6 +89,22 @@ def test_un_turno_completo_recorre_los_estados_en_orden() -> None:
         ("assistant_delta", "tres. "),
         ("assistant_delta", "¿Algo más?"),
         ("state_changed", "idle"),
+    ]
+
+
+def test_pasa_a_pensando_apenas_se_deja_de_escuchar() -> None:
+    # Mientras se transcribe el micrófono ya está cerrado: no debe decir "escuchando".
+    async def scenario() -> list[tuple[str, str]]:
+        conversation, recorder = build(listener=FakeListener(announces_speech_end=True))
+        await conversation.activate()
+        await conversation.wait()
+        return recorder.events
+
+    assert asyncio.run(scenario())[:4] == [
+        ("state_changed", "listening"),
+        ("state_changed", "thinking"),
+        ("transcript_final", "¿Qué hora es?"),
+        ("state_changed", "speaking"),
     ]
 
 

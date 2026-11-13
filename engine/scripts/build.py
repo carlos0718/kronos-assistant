@@ -30,6 +30,8 @@ def main() -> None:
             # uvicorn y websockets cargan módulos por nombre; PyInstaller no los detecta solo.
             "--collect-submodules", "uvicorn",
             "--collect-submodules", "websockets",
+            # El modelo de detección de voz (Silero) viaja dentro de faster-whisper.
+            "--collect-data", "faster_whisper",
         ]
     )  # fmt: skip
     print(f"Motor empaquetado en {ENGINE_DIR / 'dist' / NAME}")

@@ -14,8 +14,12 @@ from kronos_engine.core.sentences import SentenceSplitter
 
 
 class Listener(Protocol):
-    async def listen(self) -> str:
-        """Escucha hasta el fin de la frase y devuelve lo que entendió."""
+    async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
+        """Escucha hasta el fin de la frase y devuelve lo que entendió.
+
+        Llama a `on_speech_end` cuando deja de escuchar y pasa a transcribir.
+        Devuelve un texto vacío si nadie habló.
+        """
         ...
 
 
@@ -45,7 +49,8 @@ Emit = Callable[[str, dict[str, Any]], Awaitable[None]]
 class Conversation:
     def __init__(self, pipeline: Pipeline, set_state: SetState, emit: Emit) -> None:
         self._pipeline = pipeline
-        self._set_state = set_state
+        self._notify_state = set_state
+        self._state = "idle"
         self._emit = emit
         self._turn: asyncio.Task[None] | None = None
 
@@ -67,11 +72,20 @@ class Conversation:
         if self._turn:
             await self._turn
 
+    async def _set_state(self, state: str) -> None:
+        if state != self._state:
+            self._state = state
+            await self._notify_state(state)
+
+    async def _stop_listening(self) -> None:
+        # El micrófono ya se cerró: la interfaz deja de mostrar "escuchando".
+        await self._set_state("thinking")
+
     async def _run_turn(self) -> None:
         error: str | None = None
         try:
             await self._set_state("listening")
-            text = (await self._pipeline.listener.listen()).strip()
+            text = (await self._pipeline.listener.listen(self._stop_listening)).strip()
             if text:
                 await self._emit("transcript_final", {"text": text})
                 await self._set_state("thinking")
