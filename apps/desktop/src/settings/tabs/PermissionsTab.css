@@ -1,0 +1,14 @@
+.levels {
+  margin: 0;
+  padding: 0 0 0 8px;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+.levels li {
+  display: grid;
+  grid-template-columns: 7px 84px 1fr;
+  align-items: baseline;
+  gap: 12px;
+}

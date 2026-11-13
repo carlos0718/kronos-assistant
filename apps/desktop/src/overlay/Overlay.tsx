@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { STATE_LABEL, useEngine } from "../useEngine";
-import { Orb } from "./Orb";
+import { STATE_LABEL, useEngine } from "../engine/useEngine";
+import { Orb } from "../shared/Orb";
 import "./Overlay.css";
 
 // Tiempo que el overlay queda visible después de volver a inactivo.

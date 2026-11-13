@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { AssistantState } from "../useEngine";
+import type { AssistantState } from "../engine/useEngine";
 import "./Orb.css";
 
 type Props = { state: AssistantState; size?: number };
