@@ -29,7 +29,7 @@ async def ask(responder: AgentResponder, text: str) -> str:
 
 def test_le_pasa_al_modelo_las_instrucciones_y_lo_que_dijo_el_usuario() -> None:
     provider = FakeProvider([["Son las ", "tres."]])
-    responder = AgentResponder(provider, INSTRUCTIONS)
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS)
 
     assert asyncio.run(ask(responder, "¿Qué hora es?")) == "Son las tres."
     assert provider.received == [
@@ -39,7 +39,7 @@ def test_le_pasa_al_modelo_las_instrucciones_y_lo_que_dijo_el_usuario() -> None:
 
 def test_recuerda_los_turnos_anteriores_de_la_conversacion() -> None:
     provider = FakeProvider([["Son las tres."], ["De la tarde."]])
-    responder = AgentResponder(provider, INSTRUCTIONS)
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS)
 
     async def scenario() -> None:
         await ask(responder, "¿Qué hora es?")
@@ -56,7 +56,7 @@ def test_recuerda_los_turnos_anteriores_de_la_conversacion() -> None:
 
 def test_un_turno_que_falla_no_queda_en_la_memoria() -> None:
     provider = FakeProvider([["Son las"], ["Hola."]], fail_with=LLMError("sin conexión"))
-    responder = AgentResponder(provider, INSTRUCTIONS)
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS)
 
     async def scenario() -> None:
         with pytest.raises(LLMError):
@@ -70,7 +70,7 @@ def test_un_turno_que_falla_no_queda_en_la_memoria() -> None:
 
 def test_un_turno_cortado_por_el_usuario_no_queda_en_la_memoria() -> None:
     provider = FakeProvider([["Son las ", "tres."], ["Hola."]])
-    responder = AgentResponder(provider, INSTRUCTIONS)
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS)
 
     async def scenario() -> None:
         stream = responder.respond("¿Qué hora es?")
@@ -84,7 +84,7 @@ def test_un_turno_cortado_por_el_usuario_no_queda_en_la_memoria() -> None:
 
 def test_olvida_los_turnos_mas_viejos_al_pasar_el_limite() -> None:
     provider = FakeProvider([["uno"], ["dos"], ["tres"]])
-    responder = AgentResponder(provider, INSTRUCTIONS, max_turns=1)
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, max_turns=1)
 
     async def scenario() -> None:
         await ask(responder, "a")
@@ -98,3 +98,19 @@ def test_olvida_los_turnos_mas_viejos_al_pasar_el_limite() -> None:
         Message("assistant", "dos"),
         Message("user", "c"),
     ]
+
+
+def test_lee_las_instrucciones_en_cada_turno() -> None:
+    # El usuario puede cambiar su perfil con la conversación en marcha.
+    provider = FakeProvider([["uno"], ["dos"]])
+    current = ["Sos Kronos."]
+    responder = AgentResponder(provider, lambda: current[0])
+
+    async def scenario() -> None:
+        await ask(responder, "a")
+        current[0] = "Sos Kronos. El usuario se llama Carlos."
+        await ask(responder, "b")
+
+    asyncio.run(scenario())
+    assert provider.received[0][0] == Message("system", "Sos Kronos.")
+    assert provider.received[1][0] == Message("system", "Sos Kronos. El usuario se llama Carlos.")

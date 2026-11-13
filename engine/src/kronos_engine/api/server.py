@@ -12,10 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.api.hub import Hub, message
+from kronos_engine.api.profile import profile_router
 from kronos_engine.api.voices import voices_router
 from kronos_engine.api.wake import wake_router
 from kronos_engine.core.conversation import Pipeline
-from kronos_engine.core.demo import DemoVoices, DemoWakeWord, demo_pipeline
+from kronos_engine.core.demo import DemoProfile, DemoVoices, DemoWakeWord, demo_pipeline
+from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.protocol import ClientMessage, ServerMessage
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.voices import VoiceControl
@@ -39,6 +41,7 @@ def create_app(
     pipeline: Pipeline | None = None,
     voices: VoiceControl | None = None,
     standby: Standby | None = None,
+    profile: ProfileControl | None = None,
 ) -> FastAPI:
     """Crea el servidor. Las piezas que no se le pasan son las simuladas."""
     hub = Hub(pipeline or demo_pipeline(), standby or Standby(DemoWakeWord()))
@@ -66,6 +69,7 @@ def create_app(
 
     app.include_router(voices_router(voices or DemoVoices(), require_token))
     app.include_router(wake_router(hub.standby, require_token))
+    app.include_router(profile_router(profile or DemoProfile(), require_token))
 
     @app.get("/health", dependencies=[Depends(require_token)])
     def health() -> dict[str, Any]:

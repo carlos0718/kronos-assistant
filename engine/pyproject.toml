@@ -1,6 +1,6 @@
 [project]
 name = "kronos-engine"
-version = "0.6.0"
+version = "0.7.0"
 description = "Motor de Kronos AI Assistant: voz, LLM, herramientas, permisos y memoria."
 authors = [
     { name = "carlos0718", email = "62729276+carlos0718@users.noreply.github.com" }
