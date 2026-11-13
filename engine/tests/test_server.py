@@ -51,6 +51,7 @@ DEMO_SEQUENCE = [
     ("state_changed", "thinking"),
     ("state_changed", "speaking"),
     ("assistant_delta", DEMO_REPLY),
+    ("state_changed", "listening"),  # Escucha por si el usuario sigue.
     ("state_changed", "idle"),
 ]
 

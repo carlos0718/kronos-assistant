@@ -8,20 +8,23 @@ from kronos_engine.core.conversation import Conversation, Pipeline
 class FakeListener:
     def __init__(
         self,
-        text: str = "¿Qué hora es?",
+        *texts: str,
         wait: asyncio.Event | None = None,
         announces_speech_end: bool = False,
     ) -> None:
-        self._text = text
+        # Una frase por escucha; cuando se acaban, nadie habla.
+        self._texts = list(texts or ["¿Qué hora es?"])
         self._wait = wait
         self._announces_speech_end = announces_speech_end
 
     async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
         if self._wait:
             await self._wait.wait()
+        if not self._texts:
+            return ""
         if self._announces_speech_end and on_speech_end:
             await on_speech_end()
-        return self._text
+        return self._texts.pop(0)
 
 
 class FakeResponder:
@@ -88,6 +91,35 @@ def test_un_turno_completo_recorre_los_estados_en_orden() -> None:
         ("assistant_delta", "Son las "),
         ("assistant_delta", "tres. "),
         ("assistant_delta", "¿Algo más?"),
+        # Vuelve a escuchar por si el usuario sigue; como nadie habla, termina.
+        ("state_changed", "listening"),
+        ("state_changed", "idle"),
+    ]
+
+
+def test_si_el_usuario_sigue_hablando_la_conversacion_continua() -> None:
+    async def scenario() -> tuple[list[tuple[str, str]], list[str]]:
+        responder = FakeResponder(["Hola."])
+        listener = FakeListener("Hola", "¿Cómo estás?")
+        conversation, recorder = build(listener=listener, responder=responder)
+        await conversation.activate()
+        await conversation.wait()
+        return recorder.events, responder.asked
+
+    events, asked = asyncio.run(scenario())
+    assert asked == ["Hola", "¿Cómo estás?"]
+    assert events == [
+        ("state_changed", "listening"),
+        ("transcript_final", "Hola"),
+        ("state_changed", "thinking"),
+        ("state_changed", "speaking"),
+        ("assistant_delta", "Hola."),
+        ("state_changed", "listening"),
+        ("transcript_final", "¿Cómo estás?"),
+        ("state_changed", "thinking"),
+        ("state_changed", "speaking"),
+        ("assistant_delta", "Hola."),
+        ("state_changed", "listening"),
         ("state_changed", "idle"),
     ]
 

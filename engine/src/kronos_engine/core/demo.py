@@ -13,12 +13,16 @@ DEMO_REPLY = "Aquí estoy. Todavía no escucho de verdad: esto es una demostraci
 
 
 class DemoListener:
+    """Oye una frase y, en la escucha siguiente, silencio: así la demo termina."""
+
     def __init__(self, step_seconds: float) -> None:
         self._step = step_seconds
+        self._heard = False
 
     async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
         await asyncio.sleep(self._step)
-        return DEMO_TRANSCRIPT
+        self._heard = not self._heard
+        return DEMO_TRANSCRIPT if self._heard else ""
 
 
 class DemoResponder:

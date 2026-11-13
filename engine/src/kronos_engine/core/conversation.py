@@ -1,4 +1,4 @@
-"""Orquestador de un turno de conversación: escuchar → modelo → hablar.
+"""Orquestador de la conversación: escuchar → modelo → hablar, y de nuevo.
 
 No sabe de audio ni de modelos: recibe tres piezas intercambiables y avisa a
 la interfaz qué va pasando.
@@ -56,12 +56,12 @@ class Conversation:
         self._turn: asyncio.Task[None] | None = None
 
     async def activate(self) -> None:
-        """Empieza un turno. Si había uno en curso, lo reemplaza."""
+        """Empieza una conversación. Si había una en curso, la reemplaza."""
         await self.cancel()
-        self._turn = asyncio.create_task(self._run_turn())
+        self._turn = asyncio.create_task(self._run())
 
     async def cancel(self) -> None:
-        """Corta el turno en curso, si lo hay."""
+        """Corta la conversación en curso, si la hay."""
         turn, self._turn = self._turn, None
         if turn and not turn.done():
             turn.cancel()
@@ -69,7 +69,7 @@ class Conversation:
                 await turn
 
     async def wait(self) -> None:
-        """Espera a que termine el turno en curso."""
+        """Espera a que termine la conversación en curso."""
         if self._turn:
             await self._turn
 
@@ -82,12 +82,12 @@ class Conversation:
         # El micrófono ya se cerró: la interfaz deja de mostrar "escuchando".
         await self._set_state(AssistantState.THINKING)
 
-    async def _run_turn(self) -> None:
+    async def _run(self) -> None:
         error: str | None = None
         try:
-            await self._set_state(AssistantState.LISTENING)
-            text = (await self._pipeline.listener.listen(self._stop_listening)).strip()
-            if text:
+            # Después de responder vuelve a escuchar, por si el usuario sigue.
+            # La conversación termina cuando nadie habla.
+            while text := await self._listen():
                 await self._emit(ServerMessage.TRANSCRIPT_FINAL, {"text": text})
                 await self._set_state(AssistantState.THINKING)
                 await self._reply(text)
@@ -98,6 +98,10 @@ class Conversation:
         # Va después del estado: la interfaz borra el error al cambiar de estado.
         if error:
             await self._emit(ServerMessage.ERROR, {"message": error})
+
+    async def _listen(self) -> str:
+        await self._set_state(AssistantState.LISTENING)
+        return (await self._pipeline.listener.listen(self._stop_listening)).strip()
 
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.
