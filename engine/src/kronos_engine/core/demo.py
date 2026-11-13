@@ -4,7 +4,7 @@ PROVISORIO: la Fase 1 las reemplaza una por una por las reales.
 """
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from kronos_engine.core.conversation import Pipeline
 
@@ -16,18 +16,19 @@ class DemoListener:
     def __init__(self, step_seconds: float) -> None:
         self._step = step_seconds
 
-    async def listen(self) -> str:
+    async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
         await asyncio.sleep(self._step)
         return DEMO_TRANSCRIPT
 
 
 class DemoResponder:
-    def __init__(self, step_seconds: float) -> None:
+    def __init__(self, step_seconds: float, reply: str = DEMO_REPLY) -> None:
         self._step = step_seconds
+        self._reply = reply
 
     async def respond(self, text: str) -> AsyncIterator[str]:
         await asyncio.sleep(self._step)
-        yield DEMO_REPLY
+        yield self._reply
 
 
 class DemoSpeaker:

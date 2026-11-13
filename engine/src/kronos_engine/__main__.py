@@ -22,6 +22,7 @@ import uvicorn
 
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.api.server import create_app
+from kronos_engine.pipeline import build_pipeline
 
 HOST = "127.0.0.1"
 READY_PREFIX = "KRONOS_READY"
@@ -57,7 +58,9 @@ def main() -> None:
 
     print(f"{READY_PREFIX} {json.dumps(ready)}", flush=True)
 
-    config = uvicorn.Config(create_app(token), log_level="warning", ws="websockets-sansio")
+    config = uvicorn.Config(
+        create_app(token, build_pipeline()), log_level="warning", ws="websockets-sansio"
+    )
     uvicorn.Server(config).run(sockets=[sock])
 
 
