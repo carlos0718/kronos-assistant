@@ -17,11 +17,13 @@ class FakeListener:
         self._wait = wait
         self._announces_speech_end = announces_speech_end
 
-    async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
+    async def listen(
+        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+    ) -> str | None:
         if self._wait:
             await self._wait.wait()
         if not self._texts:
-            return ""
+            return None
         if self._announces_speech_end and on_speech_end:
             await on_speech_end()
         return self._texts.pop(0)
@@ -152,6 +154,26 @@ def test_el_modelo_recibe_la_transcripcion_y_se_habla_frase_por_frase() -> None:
     asked, spoken = asyncio.run(scenario())
     assert asked == ["¿Qué hora es?"]
     assert spoken == ["Son las tres.", "¿Algo más?"]
+
+
+def test_si_no_se_entiende_lo_que_se_oyo_sigue_escuchando() -> None:
+    # Un ruido o una frase que no se pudo transcribir no corta la conversación.
+    async def scenario() -> tuple[list[tuple[str, str]], list[str]]:
+        responder = FakeResponder(["Hola."])
+        listener = FakeListener("", "Hola", announces_speech_end=True)
+        conversation, recorder = build(listener=listener, responder=responder)
+        await conversation.activate()
+        await conversation.wait()
+        return recorder.events, responder.asked
+
+    events, asked = asyncio.run(scenario())
+    assert asked == ["Hola"]
+    assert events[:4] == [
+        ("state_changed", "listening"),
+        ("state_changed", "thinking"),
+        ("state_changed", "listening"),
+        ("state_changed", "thinking"),
+    ]
 
 
 def test_si_no_se_entendio_nada_vuelve_a_inactivo_sin_llamar_al_modelo() -> None:

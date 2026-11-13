@@ -6,6 +6,7 @@ la interfaz qué va pasando.
 
 import asyncio
 import contextlib
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -13,13 +14,18 @@ from typing import Any, Protocol
 from kronos_engine.core.protocol import AssistantState, ServerMessage
 from kronos_engine.core.sentences import SentenceSplitter
 
+log = logging.getLogger(__name__)
+
 
 class Listener(Protocol):
-    async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
+    async def listen(
+        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+    ) -> str | None:
         """Escucha hasta el fin de la frase y devuelve lo que entendió.
 
         Llama a `on_speech_end` cuando deja de escuchar y pasa a transcribir.
-        Devuelve un texto vacío si nadie habló.
+        Devuelve `None` si nadie habló, y un texto vacío si oyó algo pero no
+        lo entendió.
         """
         ...
 
@@ -87,21 +93,30 @@ class Conversation:
         try:
             # Después de responder vuelve a escuchar, por si el usuario sigue.
             # La conversación termina cuando nadie habla.
-            while text := await self._listen():
+            while (text := await self._listen()) is not None:
+                if not text:
+                    # Un ruido o algo que no se pudo transcribir: sigue escuchando.
+                    log.info("Se oyó algo que no se entendió; sigue escuchando.")
+                    continue
+                # No se registra lo que se dijo, solo cuánto: puede ser privado.
+                log.info("Frase entendida (%d caracteres); responde el modelo.", len(text))
                 await self._emit(ServerMessage.TRANSCRIPT_FINAL, {"text": text})
                 await self._set_state(AssistantState.THINKING)
                 await self._reply(text)
+            log.info("Nadie habló; termina la conversación.")
         except Exception as exc:  # noqa: BLE001 - cualquier fallo se le informa al usuario.
             error = str(exc) or type(exc).__name__
+            log.warning("La conversación terminó por un fallo: %s", error)
         finally:
             await self._set_state(AssistantState.IDLE)
         # Va después del estado: la interfaz borra el error al cambiar de estado.
         if error:
             await self._emit(ServerMessage.ERROR, {"message": error})
 
-    async def _listen(self) -> str:
+    async def _listen(self) -> str | None:
         await self._set_state(AssistantState.LISTENING)
-        return (await self._pipeline.listener.listen(self._stop_listening)).strip()
+        text = await self._pipeline.listener.listen(self._stop_listening)
+        return None if text is None else text.strip()
 
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.

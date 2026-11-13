@@ -113,15 +113,15 @@ def test_avisa_cuando_termina_de_escuchar() -> None:
         async def on_speech_end() -> None:
             log.append(f"fin de voz, micrófono abierto: {microphone.is_open}")
 
-        log.append(await listener.listen(on_speech_end))
+        log.append(str(await listener.listen(on_speech_end)))
         return log
 
     assert asyncio.run(scenario()) == ["fin de voz, micrófono abierto: False", "prendé la luz"]
 
 
-def test_si_nadie_habla_devuelve_vacio_sin_transcribir() -> None:
+def test_si_nadie_habla_devuelve_none_sin_transcribir() -> None:
     listener, microphone, _, stt = build([SILENCE] * 8)
 
-    assert asyncio.run(listener.listen()) == ""
+    assert asyncio.run(listener.listen()) is None
     assert stt.audios == []
     assert microphone.is_open is False

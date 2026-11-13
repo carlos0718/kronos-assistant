@@ -19,10 +19,12 @@ class DemoListener:
         self._step = step_seconds
         self._heard = False
 
-    async def listen(self, on_speech_end: Callable[[], Awaitable[None]] | None = None) -> str:
+    async def listen(
+        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+    ) -> str | None:
         await asyncio.sleep(self._step)
         self._heard = not self._heard
-        return DEMO_TRANSCRIPT if self._heard else ""
+        return DEMO_TRANSCRIPT if self._heard else None
 
 
 class DemoResponder:
