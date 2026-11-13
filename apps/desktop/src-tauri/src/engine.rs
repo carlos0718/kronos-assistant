@@ -41,6 +41,14 @@ struct ReadyLine {
     port: u16,
 }
 
+/// Lee una línea de la salida del motor y devuelve el puerto en el que escucha.
+/// `None` si la línea no es el aviso de arranque.
+fn parse_ready(line: &str) -> Option<Result<u16, String>> {
+    let json = line.strip_prefix(READY_PREFIX)?;
+    let parsed = serde_json::from_str::<ReadyLine>(json);
+    Some(parsed.map(|info| info.port).map_err(|e| format!("Respuesta inválida del motor: {e}")))
+}
+
 /// La interfaz lo consulta al cargar, por si el motor ya estaba listo.
 #[tauri::command]
 pub fn engine_status(engine: State<'_, Engine>) -> EngineStatus {
@@ -128,17 +136,14 @@ pub fn start(app: &AppHandle) {
             if ready {
                 continue;
             }
-            let Some(json) = line.strip_prefix(READY_PREFIX) else { continue };
-            match serde_json::from_str::<ReadyLine>(json) {
-                Ok(info) => {
+            match parse_ready(&line) {
+                None => continue,
+                Some(Ok(port)) => {
                     ready = true;
                     let token = token.clone();
-                    set_status(&app, EngineStatus::Ready { port: info.port, token });
+                    set_status(&app, EngineStatus::Ready { port, token });
                 }
-                Err(e) => {
-                    let message = format!("Respuesta inválida del motor: {e}");
-                    return set_status(&app, EngineStatus::Failed { message });
-                }
+                Some(Err(message)) => return set_status(&app, EngineStatus::Failed { message }),
             }
         }
         // La salida se cerró: el motor terminó.
@@ -151,5 +156,29 @@ pub fn stop(app: &AppHandle) {
     if let Some(mut child) = app.state::<Engine>().child.lock().unwrap().take() {
         let _ = child.kill();
         let _ = child.wait();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_ready;
+
+    #[test]
+    fn lee_el_puerto_del_aviso_de_arranque() {
+        let line = r#"KRONOS_READY {"protocol": 1, "version": "0.2.0", "port": 51234}"#;
+        assert_eq!(parse_ready(line), Some(Ok(51234)));
+    }
+
+    #[test]
+    fn ignora_las_lineas_que_no_son_el_aviso() {
+        assert_eq!(parse_ready("INFO: servidor iniciado"), None);
+        assert_eq!(parse_ready(""), None);
+    }
+
+    #[test]
+    fn informa_un_aviso_que_no_se_puede_leer() {
+        let sin_puerto = parse_ready(r#"KRONOS_READY {"protocol": 1}"#);
+        assert!(matches!(sin_puerto, Some(Err(message)) if message.starts_with("Respuesta inválida")));
+        assert!(matches!(parse_ready("KRONOS_READY no es json"), Some(Err(_))));
     }
 }
