@@ -41,7 +41,7 @@ export function GeneralTab({ state, connected, busy, onSummon }: Props) {
         <Row label="Atajo de teclado" text="Invoca a Kronos y también lo corta mientras habla.">
           <span className="keys">
             <kbd>Ctrl</kbd>
-            <kbd>Alt</kbd>
+            <kbd>Shift</kbd>
             <kbd>K</kbd>
           </span>
         </Row>

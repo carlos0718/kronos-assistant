@@ -6,10 +6,10 @@ use tauri::{RunEvent, WindowEvent};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 /// Atajo global para invocar a Kronos. Más adelante será configurable.
-const SUMMON_SHORTCUT_LABEL: &str = "Ctrl+Alt+K";
+const SUMMON_SHORTCUT_LABEL: &str = "Ctrl+Shift+K";
 
 fn summon_shortcut() -> Shortcut {
-    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyK)
+    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyK)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
