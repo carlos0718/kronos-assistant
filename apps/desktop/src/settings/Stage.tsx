@@ -1,4 +1,4 @@
-import { STATE_LABEL, type AssistantState } from "../engine/useEngine";
+import { type AssistantState, STATE_LABEL } from "../engine/useEngine";
 import { Orb } from "../shared/Orb";
 import { Icon } from "./icons";
 import "./Stage.css";

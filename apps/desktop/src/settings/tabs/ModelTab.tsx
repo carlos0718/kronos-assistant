@@ -16,11 +16,7 @@ export function ModelTab() {
     <>
       <Group title="Conexión">
         <Row label="Cómo se conecta Kronos">
-          <Segmented
-            options={["Local", "API key", "Inicio de sesión"]}
-            value={connection}
-            onChange={setConnection}
-          />
+          <Segmented options={["Local", "API key", "Inicio de sesión"]} value={connection} onChange={setConnection} />
         </Row>
         <Row label="Proveedor">
           <Value>Sin configurar</Value>
@@ -31,7 +27,10 @@ export function ModelTab() {
       </Group>
 
       <Group title="Modo híbrido">
-        <Row label="Modelo de respaldo" text="Un modelo local liviano que entra cuando no hay internet o falla la nube.">
+        <Row
+          label="Modelo de respaldo"
+          text="Un modelo local liviano que entra cuando no hay internet o falla la nube."
+        >
           <Toggle checked={fallback} onChange={setFallback} />
         </Row>
       </Group>

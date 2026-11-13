@@ -2,7 +2,7 @@
 
 > Nombre del proyecto: **Kronos AI Assistant** (antes "Proyecto X"). Palabra de activación: **"Kronos"**.
 >
-> Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
+> Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
 > Estado: **Fase 0 completa (v0.1.0).** Hay esqueleto, interfaz e instalador de Windows; el asistente todavía no conversa: la voz llega en la Fase 1.
 

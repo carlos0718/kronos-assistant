@@ -1,6 +1,6 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./theme.css";
 import { Overlay } from "./overlay/Overlay";
 import { Settings } from "./settings/Settings";

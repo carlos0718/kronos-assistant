@@ -1,9 +1,10 @@
-import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useState } from "react";
 import { useEngine } from "../engine/useEngine";
 import { Orb } from "../shared/Orb";
 import { Icon } from "./icons";
+// Va antes que los componentes: sus reglas base de botones tienen que cargarse primero.
 import "./Settings.css";
 import { Stage } from "./Stage";
 import { GeneralTab } from "./tabs/GeneralTab";
@@ -54,13 +55,7 @@ export function Settings() {
       </header>
 
       <div className="layout">
-        <Stage
-          state={state}
-          connected={connected}
-          busy={busy}
-          onHome={() => setTab("general")}
-          onSummon={summon}
-        />
+        <Stage state={state} connected={connected} busy={busy} onHome={() => setTab("general")} onSummon={summon} />
 
         <section className="panel">
           <div className="tabs" role="tablist">
@@ -80,9 +75,7 @@ export function Settings() {
 
           {error && <p className="panel-error">{error}</p>}
 
-          {tab === "general" && (
-            <GeneralTab state={state} connected={connected} busy={busy} onSummon={summon} />
-          )}
+          {tab === "general" && <GeneralTab state={state} connected={connected} busy={busy} onSummon={summon} />}
           {tab === "modelo" && <ModelTab />}
           {tab === "voz" && <VoiceTab />}
           {tab === "permisos" && <PermissionsTab />}

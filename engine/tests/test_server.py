@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,7 +39,7 @@ def skip_greeting(ws: WebSocketTestSession) -> None:
     assert ws.receive_json()["type"] == "state_changed"
 
 
-def summary(msg: dict) -> tuple[str, str]:
+def summary(msg: dict[str, Any]) -> tuple[str, str]:
     """Reduce un mensaje a (tipo, dato principal) para comparar secuencias."""
     payload = msg["payload"]
     return msg["type"], payload.get("state") or payload.get("text") or ""

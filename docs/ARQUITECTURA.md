@@ -63,26 +63,34 @@ Un solo repositorio (monorepo) con las dos partes, la landing y la documentació
 kronos-assistant/
 ├─ apps/
 │  ├─ desktop/               # App de escritorio (Tauri)
-│  │  ├─ src/                # React: overlay, configuración, asistente inicial
+│  │  ├─ src/                # React
+│  │  │  ├─ engine/          # Conexión con el motor y protocolo
+│  │  │  ├─ shared/          # Componentes que usa más de una ventana
+│  │  │  ├─ overlay/         # Ventana del overlay
+│  │  │  └─ settings/        # Ventana de configuración
 │  │  └─ src-tauri/          # Rust: bandeja, atajo, sidecar, autostart, updater
 │  └─ landing/               # Landing page (Astro)
 ├─ engine/                   # Motor (Python, con uv + pyproject)
-│  └─ kronos_engine/
-│     ├─ api/                # Servidor local (FastAPI + WebSocket)
-│     ├─ core/               # Orquestador, bus de eventos, máquina de estados
-│     ├─ voice/              # VAD, STT, TTS, wake word, entrada y salida de audio
-│     ├─ llm/                # Proveedores y enrutador (por función y respaldo)
-│     ├─ agent/              # Bucle del agente y armado de instrucciones
-│     ├─ tools/              # Plugins de acciones: apps, archivos, sistema, terminal, calendario
-│     ├─ permissions/        # Niveles 1–4, confirmaciones, clave secreta, registro
-│     ├─ triggers/           # Rutinas (scheduler), calendario, notificaciones
-│     ├─ memory/             # SQLite cifrada: perfil, historial, resúmenes
-│     ├─ config/             # Ajustes (TOML) y secretos (keyring)
-│     └─ platform/           # Adaptadores por sistema: windows/, macos/, linux/
-├─ docs/
-│  └─ ARQUITECTURA.md
-└─ .github/workflows/        # Build por sistema operativo
+│  ├─ src/kronos_engine/
+│  │  ├─ api/                # Servidor local (FastAPI + WebSocket)
+│  │  ├─ core/               # Orquestador, protocolo e interfaces
+│  │  ├─ voice/              # VAD, STT, TTS, wake word, entrada y salida de audio
+│  │  ├─ llm/                # Proveedores y enrutador (por función y respaldo)
+│  │  ├─ agent/              # Bucle del agente y armado de instrucciones
+│  │  ├─ tools/              # Plugins de acciones: apps, archivos, sistema, terminal, calendario
+│  │  ├─ permissions/        # Niveles 1–4, confirmaciones, clave secreta, registro
+│  │  ├─ triggers/           # Rutinas (scheduler), calendario, notificaciones
+│  │  ├─ memory/             # SQLite cifrada: perfil, historial, resúmenes
+│  │  ├─ config/             # Ajustes (TOML) y secretos (keyring)
+│  │  ├─ platform/           # Adaptadores por sistema: windows/, macos/, linux/
+│  │  └─ pipeline.py         # Arma las piezas con las que arranca el motor
+│  └─ tests/
+├─ docs/                     # ARQUITECTURA.md, DISENO.md, CODIGO.md
+├─ scripts/                  # Versión y tamaño de los archivos
+└─ .github/workflows/        # Chequeos de cada pull request
 ```
+
+Hoy existen `api/`, `core/` y `voice/`; los demás paquetes del motor llegan con su fase. Qué puede importar cada uno está en [CODIGO.md](CODIGO.md#2-capas-del-motor).
 
 ## 4. Piezas intercambiables
 

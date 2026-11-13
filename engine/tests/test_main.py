@@ -25,6 +25,8 @@ def test_responde_con_la_entrada_vigilada_y_termina_cuando_la_app_la_cierra() ->
         env=env,
         text=True,
     )
+    assert engine.stdin is not None
+    assert engine.stdout is not None
     try:
         prefix, _, ready = engine.stdout.readline().partition(" ")
         assert prefix == "KRONOS_READY"

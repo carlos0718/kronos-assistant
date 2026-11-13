@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { STATE_LABEL, type AssistantState } from "../../engine/useEngine";
+import { type AssistantState, STATE_LABEL } from "../../engine/useEngine";
 import { Group, Row, Segmented, Toggle } from "../controls";
 import { Icon } from "../icons";
 import "./GeneralTab.css";

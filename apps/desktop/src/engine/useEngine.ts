@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { PROTOCOL_VERSION, type ClientMessage, type EngineState, type ServerMessage } from "./protocol";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { type ClientMessage, type EngineState, PROTOCOL_VERSION, type ServerMessage } from "./protocol";
 
 // Lo que muestra la interfaz: los estados del motor, más "sin conexión".
 export type AssistantState = EngineState | "disconnected";

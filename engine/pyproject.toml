@@ -25,6 +25,8 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "import-linter>=2.16",
+    "mypy>=2.4.1",
     "pyinstaller>=6.22.3",
     "pytest>=9.2.0",
     "ruff>=0.17.5",
@@ -32,6 +34,48 @@ dev = [
 
 [tool.ruff]
 line-length = 100
+
+# Las reglas y el porqué de cada chequeo están en docs/CODIGO.md.
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",  # errores y avisos básicos
+    "I",            # orden de los imports
+    "B",            # errores frecuentes
+    "UP",           # sintaxis moderna de Python
+    "SIM", "C4",    # código más simple
+    "C90",          # complejidad de las funciones
+    "BLE",          # no atrapar Exception sin motivo
+    "ASYNC",        # errores de asyncio
+    "PT",           # estilo de los tests
+    "RUF",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+# Librerías de voz que no publican tipos.
+[[tool.mypy.overrides]]
+module = ["faster_whisper.*", "onnxruntime.*", "sounddevice.*"]
+ignore_missing_imports = true
+
+# Qué paquete del motor puede importar a cuál. De arriba hacia abajo: cada
+# capa solo importa de las que tiene debajo.
+[tool.importlinter]
+root_package = "kronos_engine"
+
+[[tool.importlinter.contracts]]
+name = "Capas del motor"
+type = "layers"
+layers = [
+    "kronos_engine.__main__",
+    "kronos_engine.pipeline",
+    "kronos_engine.api | kronos_engine.voice",
+    "kronos_engine.core",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

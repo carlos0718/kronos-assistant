@@ -56,18 +56,20 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             // Cerrar la configuración la oculta: Kronos sigue en la bandeja.
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == tray::SETTINGS_LABEL {
-                    api.prevent_close();
-                    let _ = window.hide();
-                }
+            if let WindowEvent::CloseRequested { api, .. } = event
+                && window.label() == tray::SETTINGS_LABEL
+            {
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
         .build(tauri::generate_context!())
         .expect("error al iniciar Kronos AI Assistant")
         .run(|app, event| match event {
             // Sin ventanas visibles la app no termina; solo "Salir" la cierra.
-            RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
+            RunEvent::ExitRequested {
+                api, code: None, ..
+            } => api.prevent_exit(),
             RunEvent::Exit => engine::stop(app),
             _ => {}
         });

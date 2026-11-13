@@ -46,7 +46,11 @@ struct ReadyLine {
 fn parse_ready(line: &str) -> Option<Result<u16, String>> {
     let json = line.strip_prefix(READY_PREFIX)?;
     let parsed = serde_json::from_str::<ReadyLine>(json);
-    Some(parsed.map(|info| info.port).map_err(|e| format!("Respuesta inválida del motor: {e}")))
+    Some(
+        parsed
+            .map(|info| info.port)
+            .map_err(|e| format!("Respuesta inválida del motor: {e}")),
+    )
 }
 
 /// La interfaz lo consulta al cargar, por si el motor ya estaba listo.
@@ -80,13 +84,19 @@ fn engine_command(app: &AppHandle) -> Result<Command, String> {
         let _ = app;
         let engine_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../engine");
         let mut cmd = Command::new("uv");
-        cmd.args(["run", "--project"]).arg(engine_dir).arg("kronos-engine");
+        cmd.args(["run", "--project"])
+            .arg(engine_dir)
+            .arg("kronos-engine");
         Ok(cmd)
     }
 
     #[cfg(not(debug_assertions))]
     {
-        let name = if cfg!(windows) { "kronos-engine.exe" } else { "kronos-engine" };
+        let name = if cfg!(windows) {
+            "kronos-engine.exe"
+        } else {
+            "kronos-engine"
+        };
         let path = app
             .path()
             .resource_dir()
@@ -115,7 +125,8 @@ fn spawn(app: &AppHandle, token: &str) -> Result<Child, String> {
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
-    cmd.spawn().map_err(|e| format!("No se pudo iniciar el motor: {e}"))
+    cmd.spawn()
+        .map_err(|e| format!("No se pudo iniciar el motor: {e}"))
 }
 
 pub fn start(app: &AppHandle) {
@@ -125,7 +136,10 @@ pub fn start(app: &AppHandle) {
         Err(message) => return set_status(app, EngineStatus::Failed { message }),
     };
 
-    let stdout = child.stdout.take().expect("la salida del motor se pidió con pipe");
+    let stdout = child
+        .stdout
+        .take()
+        .expect("la salida del motor se pidió con pipe");
     *app.state::<Engine>().child.lock().unwrap() = Some(child);
 
     let app = app.clone();
@@ -147,8 +161,17 @@ pub fn start(app: &AppHandle) {
             }
         }
         // La salida se cerró: el motor terminó.
-        let message = if ready { "El motor se detuvo." } else { "El motor terminó antes de estar listo." };
-        set_status(&app, EngineStatus::Failed { message: message.into() });
+        let message = if ready {
+            "El motor se detuvo."
+        } else {
+            "El motor terminó antes de estar listo."
+        };
+        set_status(
+            &app,
+            EngineStatus::Failed {
+                message: message.into(),
+            },
+        );
     });
 }
 
@@ -178,7 +201,12 @@ mod tests {
     #[test]
     fn informa_un_aviso_que_no_se_puede_leer() {
         let sin_puerto = parse_ready(r#"KRONOS_READY {"protocol": 1}"#);
-        assert!(matches!(sin_puerto, Some(Err(message)) if message.starts_with("Respuesta inválida")));
-        assert!(matches!(parse_ready("KRONOS_READY no es json"), Some(Err(_))));
+        assert!(
+            matches!(sin_puerto, Some(Err(message)) if message.starts_with("Respuesta inválida"))
+        );
+        assert!(matches!(
+            parse_ready("KRONOS_READY no es json"),
+            Some(Err(_))
+        ));
     }
 }
