@@ -58,6 +58,8 @@ def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s motor: %(message)s", datefmt="%H:%M:%S"
     )
+    # httpx anota cada pedido a Ollama: es ruido.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     token = os.environ.get(TOKEN_ENV)
     ready: dict[str, object] = {"protocol": PROTOCOL_VERSION, "version": __version__}
     if not token:

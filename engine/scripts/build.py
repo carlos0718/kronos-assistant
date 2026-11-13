@@ -32,6 +32,8 @@ def main() -> None:
             "--collect-submodules", "websockets",
             # El modelo de detección de voz (Silero) viaja dentro de faster-whisper.
             "--collect-data", "faster_whisper",
+            # Piper trae los datos de pronunciación (espeak-ng) dentro del paquete.
+            "--collect-data", "piper",
         ]
     )  # fmt: skip
     print(f"Motor empaquetado en {ENGINE_DIR / 'dist' / NAME}")

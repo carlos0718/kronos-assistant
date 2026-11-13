@@ -37,8 +37,11 @@ class Responder(Protocol):
 
 
 class Speaker(Protocol):
-    async def speak(self, text: str) -> None:
-        """Dice una frase y vuelve cuando terminó de sonar."""
+    async def speak(self, sentences: AsyncIterator[str]) -> None:
+        """Dice las frases a medida que llegan.
+
+        Vuelve cuando terminó de sonar la última.
+        """
         ...
 
 
@@ -51,6 +54,12 @@ class Pipeline:
 
 SetState = Callable[[AssistantState], Awaitable[None]]
 Emit = Callable[[ServerMessage, dict[str, Any]], Awaitable[None]]
+
+
+async def _drain(sentences: asyncio.Queue[str | None]) -> AsyncIterator[str]:
+    """Entrega las frases de la cola hasta la marca de fin (`None`)."""
+    while (sentence := await sentences.get()) is not None:
+        yield sentence
 
 
 class Conversation:
@@ -121,7 +130,7 @@ class Conversation:
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.
         sentences: asyncio.Queue[str | None] = asyncio.Queue()
-        speaking = asyncio.create_task(self._speak_all(sentences))
+        speaking = asyncio.create_task(self._pipeline.speaker.speak(_drain(sentences)))
         splitter = SentenceSplitter()
         started = False
         try:
@@ -141,7 +150,3 @@ class Conversation:
                 speaking.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await speaking
-
-    async def _speak_all(self, sentences: asyncio.Queue[str | None]) -> None:
-        while (sentence := await sentences.get()) is not None:
-            await self._pipeline.speaker.speak(sentence)

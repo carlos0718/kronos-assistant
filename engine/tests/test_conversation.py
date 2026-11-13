@@ -47,8 +47,9 @@ class FakeSpeaker:
     def __init__(self) -> None:
         self.spoken: list[str] = []
 
-    async def speak(self, text: str) -> None:
-        self.spoken.append(text)
+    async def speak(self, sentences: AsyncIterator[str]) -> None:
+        async for sentence in sentences:
+            self.spoken.append(sentence)
 
 
 class Recorder:

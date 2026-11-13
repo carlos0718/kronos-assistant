@@ -40,19 +40,9 @@ class DemoSpeaker:
     def __init__(self, step_seconds: float) -> None:
         self._step = step_seconds
 
-    async def speak(self, text: str) -> None:
-        await asyncio.sleep(self._step)
-
-
-class SilentSpeaker:
-    """No dice nada. PROVISORIO: hasta que llegue la voz.
-
-    No espera: así Kronos vuelve a escuchar apenas termina de responder. La
-    respuesta queda en pantalla mientras escucha.
-    """
-
-    async def speak(self, text: str) -> None:
-        return None
+    async def speak(self, sentences: AsyncIterator[str]) -> None:
+        async for _ in sentences:
+            await asyncio.sleep(self._step)
 
 
 def demo_pipeline(step_seconds: float = 2.0) -> Pipeline:
