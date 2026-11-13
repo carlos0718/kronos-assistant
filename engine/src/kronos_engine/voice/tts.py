@@ -42,6 +42,19 @@ class PiperTts:
         self._voice: Any = None
         self._lock = threading.Lock()
 
+    @property
+    def voice(self) -> str:
+        return self._voice_name
+
+    def set_voice(self, voice: str) -> None:
+        """Cambia de voz. La nueva se carga en segundo plano."""
+        with self._lock:
+            if voice == self._voice_name:
+                return
+            self._voice_name = voice
+            self._voice = None
+        self.preload()
+
     def preload(self) -> None:
         threading.Thread(target=self._preload, daemon=True).start()
 

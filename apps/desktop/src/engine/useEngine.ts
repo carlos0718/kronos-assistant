@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Connection } from "./api";
 import { type ClientMessage, type EngineState, PROTOCOL_VERSION, type ServerMessage } from "./protocol";
 
 // Lo que muestra la interfaz: los estados del motor, más "sin conexión".
@@ -25,6 +26,7 @@ export function useEngine() {
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [connection, setConnection] = useState<Connection | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -59,6 +61,7 @@ export function useEngine() {
       if (disposed || socketRef.current) return;
       const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(token)}`);
       socketRef.current = socket;
+      setConnection({ port, token });
 
       socket.onmessage = (event) => handle(JSON.parse(event.data) as ServerMessage);
       socket.onerror = () => {
@@ -66,7 +69,10 @@ export function useEngine() {
       };
       socket.onclose = () => {
         if (socketRef.current === socket) socketRef.current = null;
-        if (!disposed) setState("disconnected");
+        if (!disposed) {
+          setState("disconnected");
+          setConnection(null);
+        }
       };
     }
 
@@ -107,5 +113,5 @@ export function useEngine() {
     setReply("");
   }, []);
 
-  return { state, transcript, reply, error, send, clear };
+  return { state, transcript, reply, error, connection, send, clear };
 }

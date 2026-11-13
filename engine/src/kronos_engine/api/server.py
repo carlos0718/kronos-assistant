@@ -8,20 +8,41 @@ import secrets
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.api.hub import Hub, message
+from kronos_engine.api.voices import voices_router
 from kronos_engine.core.conversation import Pipeline
-from kronos_engine.core.demo import demo_pipeline
+from kronos_engine.core.demo import DemoVoices, demo_pipeline
 from kronos_engine.core.protocol import ClientMessage, ServerMessage
+from kronos_engine.core.voices import VoiceControl
 
 # Código de cierre de WebSocket para "política violada" (token inválido).
 WS_POLICY_VIOLATION = 1008
 
+# Desde dónde carga la interfaz: el servidor de desarrollo de Vite y la app
+# instalada. El navegador exige este permiso para los pedidos HTTP; el acceso
+# lo sigue decidiendo el token.
+UI_ORIGINS = [
+    "http://localhost:1420",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "tauri://localhost",
+]
 
-def create_app(token: str, pipeline: Pipeline | None = None) -> FastAPI:
-    """Crea el servidor. Sin `pipeline` usa las piezas simuladas."""
+
+def create_app(
+    token: str, pipeline: Pipeline | None = None, voices: VoiceControl | None = None
+) -> FastAPI:
+    """Crea el servidor. Sin `pipeline` o sin `voices` usa las piezas simuladas."""
     app = FastAPI(title="Kronos Engine", version=__version__, docs_url=None, redoc_url=None)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=UI_ORIGINS,
+        allow_methods=["GET", "PUT", "POST"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
     hub = Hub(pipeline or demo_pipeline())
 
     def token_ok(candidate: str | None) -> bool:
@@ -31,6 +52,8 @@ def create_app(token: str, pipeline: Pipeline | None = None) -> FastAPI:
         scheme, _, value = (authorization or "").partition(" ")
         if scheme.lower() != "bearer" or not token_ok(value):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token inválido")
+
+    app.include_router(voices_router(voices or DemoVoices(), require_token))
 
     @app.get("/health", dependencies=[Depends(require_token)])
     def health() -> dict[str, Any]:

@@ -27,7 +27,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 /** Ventana de configuración: escenario con la bolita a la izquierda y panel con pestañas a la derecha. */
 export function Settings() {
-  const { state, error } = useEngine();
+  const { state, error, connection } = useEngine();
   const [tab, setTab] = useState<TabId>("general");
   const connected = state !== "disconnected";
   const busy = connected && state !== "idle";
@@ -77,7 +77,7 @@ export function Settings() {
 
           {tab === "general" && <GeneralTab state={state} connected={connected} busy={busy} onSummon={summon} />}
           {tab === "modelo" && <ModelTab />}
-          {tab === "voz" && <VoiceTab />}
+          {tab === "voz" && <VoiceTab connection={connection} />}
           {tab === "permisos" && <PermissionsTab />}
           {tab === "rutinas" && <RoutinesTab />}
           {tab === "memoria" && <MemoryTab />}

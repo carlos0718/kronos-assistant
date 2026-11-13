@@ -90,7 +90,7 @@ kronos-assistant/
 └─ .github/workflows/        # Chequeos de cada pull request
 ```
 
-Hoy existen `api/`, `core/`, `voice/`, `llm/` y `agent/`; los demás paquetes del motor llegan con su fase. Qué puede importar cada uno está en [CODIGO.md](CODIGO.md#2-capas-del-motor).
+Hoy existen `api/`, `core/`, `voice/`, `llm/`, `agent/` y `config/`; los demás paquetes del motor llegan con su fase. Qué puede importar cada uno está en [CODIGO.md](CODIGO.md#2-capas-del-motor).
 
 ## 4. Piezas intercambiables
 
