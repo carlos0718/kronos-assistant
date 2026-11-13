@@ -4,7 +4,7 @@
 >
 > Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **idea / fase de análisis y planeación**
+> Estado: **Fase 0 completa (v0.1.0).** Hay esqueleto, interfaz e instalador de Windows; el asistente todavía no conversa: la voz llega en la Fase 1.
 
 ## La idea
 
@@ -323,7 +323,7 @@ El detalle está en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 Construcción, según las fases del documento de arquitectura:
 
-- [ ] **Fase 0:** esqueleto del monorepo y prueba de empaquetado (motor "hola mundo" con PyInstaller como sidecar de Tauri, con instalador para Windows).
+- [x] **Fase 0:** esqueleto del monorepo y prueba de empaquetado (motor "hola mundo" con PyInstaller como recurso de Tauri, con instalador para Windows). Comprobado el 12 nov. 2026: el instalador pesa 14 MB y la app instalada arranca el motor y se conecta con él.
 - [ ] **Fase 1:** bucle de voz con overlay (atajo → escuchar → modelo → hablar). Medir latencia y consumo para definir el hardware mínimo.
 - [ ] **Fase 2:** herramientas y niveles de permiso, con confirmación y clave secreta.
 - [ ] **Fase 3:** memoria persistente cifrada.

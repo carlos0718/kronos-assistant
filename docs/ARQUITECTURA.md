@@ -1,6 +1,6 @@
 # Arquitectura de Kronos AI Assistant
 
-> Estado: **propuesta aprobada, sin código todavía.** Este documento define cómo se organiza el proyecto. Las decisiones funcionales están en el [README](../README.md).
+> Estado: **Fase 0 implementada.** Este documento define cómo se organiza el proyecto. Las decisiones funcionales están en el [README](../README.md).
 
 ## 1. Dos procesos
 
