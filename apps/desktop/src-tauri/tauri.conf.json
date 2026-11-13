@@ -14,7 +14,7 @@
       {
         "label": "overlay",
         "title": "Kronos",
-        "width": 480,
+        "width": 680,
         "height": 320,
         "transparent": true,
         "decorations": false,

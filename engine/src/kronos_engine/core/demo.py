@@ -43,17 +43,14 @@ class DemoSpeaker:
 
 
 class SilentSpeaker:
-    """No suena: espera lo que tardaría en decirse la frase.
+    """No dice nada. PROVISORIO: hasta que llegue la voz.
 
-    PROVISORIO: hasta que llegue la voz, deja la respuesta en pantalla el
-    tiempo suficiente para leerla.
+    No espera: así Kronos vuelve a escuchar apenas termina de responder. La
+    respuesta queda en pantalla mientras escucha.
     """
 
-    def __init__(self, seconds_per_character: float = 0.06) -> None:
-        self._pace = seconds_per_character
-
     async def speak(self, text: str) -> None:
-        await asyncio.sleep(len(text) * self._pace)
+        return None
 
 
 def demo_pipeline(step_seconds: float = 2.0) -> Pipeline:
