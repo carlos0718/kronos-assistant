@@ -41,7 +41,7 @@
 
 | Situación | Qué pasa |
 |---|---|
-| El usuario la invoca (atajo `Ctrl+Alt+K`, clic en la bandeja o, desde la Fase 6, la palabra "Kronos") | Aparece y empieza a escuchar |
+| El usuario la invoca (atajo `Ctrl+Shift+K`, clic en la bandeja o, desde la Fase 6, la palabra "Kronos") | Aparece y empieza a escuchar |
 | El usuario la invoca mientras Kronos escucha, piensa o habla | Corta lo que esté haciendo |
 | Kronos vuelve a inactivo | Se oculta sola a los 2,5 segundos |
 | El motor no responde | Muestra el error y se oculta a los 5 segundos |
