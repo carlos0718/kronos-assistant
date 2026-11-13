@@ -1,0 +1,113 @@
+"""Orquestador de un turno de conversación: escuchar → modelo → hablar.
+
+No sabe de audio ni de modelos: recibe tres piezas intercambiables y avisa a
+la interfaz qué va pasando.
+"""
+
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any, Protocol
+
+from kronos_engine.core.sentences import SentenceSplitter
+
+
+class Listener(Protocol):
+    async def listen(self) -> str:
+        """Escucha hasta el fin de la frase y devuelve lo que entendió."""
+        ...
+
+
+class Responder(Protocol):
+    def respond(self, text: str) -> AsyncIterator[str]:
+        """Genera la respuesta de a pedazos, a medida que el modelo la produce."""
+        ...
+
+
+class Speaker(Protocol):
+    async def speak(self, text: str) -> None:
+        """Dice una frase y vuelve cuando terminó de sonar."""
+        ...
+
+
+@dataclass(frozen=True)
+class Pipeline:
+    listener: Listener
+    responder: Responder
+    speaker: Speaker
+
+
+SetState = Callable[[str], Awaitable[None]]
+Emit = Callable[[str, dict[str, Any]], Awaitable[None]]
+
+
+class Conversation:
+    def __init__(self, pipeline: Pipeline, set_state: SetState, emit: Emit) -> None:
+        self._pipeline = pipeline
+        self._set_state = set_state
+        self._emit = emit
+        self._turn: asyncio.Task[None] | None = None
+
+    async def activate(self) -> None:
+        """Empieza un turno. Si había uno en curso, lo reemplaza."""
+        await self.cancel()
+        self._turn = asyncio.create_task(self._run_turn())
+
+    async def cancel(self) -> None:
+        """Corta el turno en curso, si lo hay."""
+        turn, self._turn = self._turn, None
+        if turn and not turn.done():
+            turn.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await turn
+
+    async def wait(self) -> None:
+        """Espera a que termine el turno en curso."""
+        if self._turn:
+            await self._turn
+
+    async def _run_turn(self) -> None:
+        error: str | None = None
+        try:
+            await self._set_state("listening")
+            text = (await self._pipeline.listener.listen()).strip()
+            if text:
+                await self._emit("transcript_final", {"text": text})
+                await self._set_state("thinking")
+                await self._reply(text)
+        except Exception as exc:  # noqa: BLE001 - cualquier fallo se le informa al usuario.
+            error = str(exc) or type(exc).__name__
+        finally:
+            await self._set_state("idle")
+        # Va después del estado: la interfaz borra el error al cambiar de estado.
+        if error:
+            await self._emit("error", {"message": error})
+
+    async def _reply(self, text: str) -> None:
+        # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.
+        sentences: asyncio.Queue[str | None] = asyncio.Queue()
+        speaking = asyncio.create_task(self._speak_all(sentences))
+        splitter = SentenceSplitter()
+        started = False
+        try:
+            async for delta in self._pipeline.responder.respond(text):
+                if not started:
+                    started = True
+                    await self._set_state("speaking")
+                await self._emit("assistant_delta", {"text": delta})
+                for sentence in splitter.feed(delta):
+                    sentences.put_nowait(sentence)
+            if rest := splitter.flush():
+                sentences.put_nowait(rest)
+            sentences.put_nowait(None)
+            await speaking
+        finally:
+            if not speaking.done():
+                speaking.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await speaking
+
+    async def _speak_all(self, sentences: asyncio.Queue[str | None]) -> None:
+        while (sentence := await sentences.get()) is not None:
+            await self._pipeline.speaker.speak(sentence)

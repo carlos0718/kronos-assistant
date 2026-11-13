@@ -6,7 +6,8 @@ from starlette.testclient import WebSocketTestSession
 from starlette.websockets import WebSocketDisconnect
 
 from kronos_engine import PROTOCOL_VERSION
-from kronos_engine.api.server import DEMO_REPLY, DEMO_TRANSCRIPT, create_app
+from kronos_engine.api.server import create_app
+from kronos_engine.core.demo import DEMO_REPLY, DEMO_TRANSCRIPT, demo_pipeline
 
 TOKEN = "token-de-prueba"
 WS_URL = f"/ws?token={TOKEN}"
@@ -14,7 +15,7 @@ WS_URL = f"/ws?token={TOKEN}"
 
 def make_client(demo_step_seconds: float) -> Iterator[TestClient]:
     # El bloque `with` mantiene un único bucle de eventos para todas las conexiones.
-    with TestClient(create_app(TOKEN, demo_step_seconds=demo_step_seconds)) as client:
+    with TestClient(create_app(TOKEN, demo_pipeline(demo_step_seconds))) as client:
         yield client
 
 
