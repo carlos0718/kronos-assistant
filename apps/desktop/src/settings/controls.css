@@ -76,6 +76,10 @@
   background: transparent;
   cursor: pointer;
 }
+.slider input[type="range"]:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 .slider input[type="range"]::-webkit-slider-runnable-track {
   height: 3px;
   border-radius: 2px;

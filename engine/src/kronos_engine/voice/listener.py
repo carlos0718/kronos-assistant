@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
+from dataclasses import replace
 from typing import Protocol
 
 import numpy as np
@@ -62,10 +63,15 @@ class VoiceListener:
         self._config = config or EndpointConfig()
 
     async def listen(
-        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+        self,
+        on_speech_end: Callable[[], Awaitable[None]] | None = None,
+        wait_seconds: float | None = None,
     ) -> str | None:
+        config = self._config
+        if wait_seconds is not None:
+            config = replace(config, start_timeout_ms=wait_seconds * 1000)
         async with self._open_microphone() as microphone:
-            audio = await capture(microphone, self._vad, self._config)
+            audio = await capture(microphone, self._vad, config)
         if audio is None:
             return None
         # El micrófono ya está cerrado: transcribir puede tardar un momento.

@@ -11,12 +11,20 @@ from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from kronos_engine import PROTOCOL_VERSION, __version__
+from kronos_engine.api.follow_up import follow_up_router
 from kronos_engine.api.hub import Hub, message
 from kronos_engine.api.profile import profile_router
 from kronos_engine.api.voices import voices_router
 from kronos_engine.api.wake import wake_router
 from kronos_engine.core.conversation import Pipeline
-from kronos_engine.core.demo import DemoProfile, DemoVoices, DemoWakeWord, demo_pipeline
+from kronos_engine.core.demo import (
+    DemoFollowUp,
+    DemoProfile,
+    DemoVoices,
+    DemoWakeWord,
+    demo_pipeline,
+)
+from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.protocol import ClientMessage, ServerMessage
 from kronos_engine.core.standby import Standby
@@ -42,9 +50,11 @@ def create_app(
     voices: VoiceControl | None = None,
     standby: Standby | None = None,
     profile: ProfileControl | None = None,
+    follow_up: FollowUpControl | None = None,
 ) -> FastAPI:
     """Crea el servidor. Las piezas que no se le pasan son las simuladas."""
-    hub = Hub(pipeline or demo_pipeline(), standby or Standby(DemoWakeWord()))
+    follow_up = follow_up or DemoFollowUp()
+    hub = Hub(pipeline or demo_pipeline(), standby or Standby(DemoWakeWord()), follow_up)
     app = FastAPI(
         title="Kronos Engine",
         version=__version__,
@@ -70,6 +80,7 @@ def create_app(
     app.include_router(voices_router(voices or DemoVoices(), require_token))
     app.include_router(wake_router(hub.standby, require_token))
     app.include_router(profile_router(profile or DemoProfile(), require_token))
+    app.include_router(follow_up_router(follow_up, require_token))
 
     @app.get("/health", dependencies=[Depends(require_token)])
     def health() -> dict[str, Any]:

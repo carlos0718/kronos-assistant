@@ -16,10 +16,15 @@ class FakeListener:
         self._texts = list(texts or ["¿Qué hora es?"])
         self._wait = wait
         self._announces_speech_end = announces_speech_end
+        # La espera que se pidió en cada escucha; None es la del propio oyente.
+        self.waits: list[float | None] = []
 
     async def listen(
-        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+        self,
+        on_speech_end: Callable[[], Awaitable[None]] | None = None,
+        wait_seconds: float | None = None,
     ) -> str | None:
+        self.waits.append(wait_seconds)
         if self._wait:
             await self._wait.wait()
         if not self._texts:
@@ -69,6 +74,7 @@ def build(
     listener: FakeListener | None = None,
     responder: FakeResponder | None = None,
     speaker: FakeSpeaker | None = None,
+    follow_up: Callable[[], float] | None = None,
 ) -> tuple[Conversation, Recorder]:
     recorder = Recorder()
     pipeline = Pipeline(
@@ -76,7 +82,7 @@ def build(
         responder=responder or FakeResponder(["Son las ", "tres. ", "¿Algo más?"]),
         speaker=speaker or FakeSpeaker(),
     )
-    return Conversation(pipeline, recorder.set_state, recorder.emit), recorder
+    return Conversation(pipeline, recorder.set_state, recorder.emit, follow_up), recorder
 
 
 def test_un_turno_completo_recorre_los_estados_en_orden() -> None:
@@ -123,6 +129,49 @@ def test_si_el_usuario_sigue_hablando_la_conversacion_continua() -> None:
         ("state_changed", "speaking"),
         ("assistant_delta", "Hola."),
         ("state_changed", "listening"),
+        ("state_changed", "idle"),
+    ]
+
+
+def test_despues_de_responder_espera_lo_que_eligio_el_usuario() -> None:
+    async def scenario() -> list[float | None]:
+        listener = FakeListener("Hola")
+        conversation, _ = build(listener=listener, follow_up=lambda: 20)
+        await conversation.activate()
+        await conversation.wait()
+        return listener.waits
+
+    # La primera escucha usa la espera del oyente; la elegida vale después de responder.
+    assert asyncio.run(scenario()) == [None, 20]
+
+
+def test_la_espera_elegida_no_vale_antes_de_la_primera_respuesta() -> None:
+    async def scenario() -> list[float | None]:
+        listener = FakeListener("", "Hola")
+        conversation, _ = build(listener=listener, follow_up=lambda: 20)
+        await conversation.activate()
+        await conversation.wait()
+        return listener.waits
+
+    assert asyncio.run(scenario()) == [None, None, 20]
+
+
+def test_con_la_espera_en_cero_termina_despues_de_responder() -> None:
+    async def scenario() -> tuple[list[tuple[str, str]], list[float | None]]:
+        listener = FakeListener("Hola", "no debería oírse")
+        conversation, recorder = build(
+            listener=listener, responder=FakeResponder(["Hola."]), follow_up=lambda: 0
+        )
+        await conversation.activate()
+        await conversation.wait()
+        return recorder.events, listener.waits
+
+    events, waits = asyncio.run(scenario())
+    assert waits == [None]
+    # No vuelve a mostrar "escuchando": el micrófono no se abre de nuevo.
+    assert events[-3:] == [
+        ("state_changed", "speaking"),
+        ("assistant_delta", "Hola."),
         ("state_changed", "idle"),
     ]
 

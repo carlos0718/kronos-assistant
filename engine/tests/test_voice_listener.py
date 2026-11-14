@@ -125,3 +125,18 @@ def test_si_nadie_habla_devuelve_none_sin_transcribir() -> None:
     assert asyncio.run(listener.listen()) is None
     assert stt.audios == []
     assert microphone.is_open is False
+
+
+def test_la_espera_pedida_reemplaza_a_la_configurada() -> None:
+    # La configurada es de 500 ms (5 cuadros): con 200 ms se rinde en el segundo.
+    listener, microphone, _, _ = build([SILENCE] * 8)
+
+    assert asyncio.run(listener.listen(wait_seconds=0.2)) is None
+    assert microphone.read == 2
+
+
+def test_una_espera_mas_larga_alcanza_a_quien_tarda_en_hablar() -> None:
+    # Empieza a hablar a los 600 ms: con la espera configurada no se lo oiría.
+    listener, _, _, _ = build([SILENCE] * 6 + [VOICE, VOICE, SILENCE, SILENCE])
+
+    assert asyncio.run(listener.listen(wait_seconds=1)) == "prendé la luz"
