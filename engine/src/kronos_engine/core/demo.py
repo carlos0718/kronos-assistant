@@ -7,6 +7,7 @@ import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from kronos_engine.core.conversation import Pipeline
+from kronos_engine.core.profile import Profile
 from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
 
 DEMO_TRANSCRIPT = "Kronos, ¿estás ahí?"
@@ -52,6 +53,19 @@ class DemoWakeWord:
     async def wait(self) -> str:
         await asyncio.Event().wait()
         return ""
+
+
+class DemoProfile:
+    """Un perfil que solo vive en la memoria."""
+
+    def __init__(self) -> None:
+        self._profile = Profile()
+
+    def get(self) -> Profile:
+        return self._profile
+
+    def set(self, profile: Profile) -> None:
+        self._profile = profile
 
 
 class DemoVoices:

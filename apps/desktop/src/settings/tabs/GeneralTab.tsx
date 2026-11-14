@@ -4,6 +4,7 @@ import { type AssistantState, STATE_LABEL } from "../../engine/useEngine";
 import { Group, Row, Segmented, Toggle } from "../controls";
 import { Icon } from "../icons";
 import "./GeneralTab.css";
+import { ProfileGroup } from "./ProfileGroup";
 
 type Props = {
   state: AssistantState;
@@ -62,6 +63,8 @@ export function GeneralTab({ state, connection, busy, onSummon }: Props) {
           <span className="tester-state">{STATE_LABEL[state]}</span>
         </div>
       </Group>
+
+      <ProfileGroup connection={connection} />
 
       <Group title="Idioma">
         <Row label="Idioma de la voz y de la interfaz">

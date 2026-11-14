@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 class Settings:
     voice: str | None = None  # Voz elegida; None usa la voz por defecto del idioma.
     wake_word: bool = False  # Si Kronos escucha su nombre para activarse.
+    user_name: str | None = None  # Cómo quiere el usuario que lo llamen.
+    user_about: str | None = None  # Descripción corta del usuario, como contexto.
 
 
 def config_dir() -> Path:
@@ -42,9 +44,13 @@ class SettingsStore:
             return Settings()
         voice = data.get("voice")
         wake_word = data.get("wake_word")
+        user_name = data.get("user_name")
+        user_about = data.get("user_about")
         return Settings(
             voice=voice if isinstance(voice, str) else None,
             wake_word=wake_word if isinstance(wake_word, bool) else False,
+            user_name=user_name if isinstance(user_name, str) else None,
+            user_about=user_about if isinstance(user_about, str) else None,
         )
 
     def save(self, settings: Settings) -> None:

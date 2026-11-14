@@ -1,0 +1,57 @@
+/* Perfil del usuario: dos campos de texto y un botón para guardar. */
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 8px;
+}
+.profile label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.profile input,
+.profile textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #08070d;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.profile textarea {
+  resize: vertical;
+  line-height: 1.4;
+}
+.profile input:focus,
+.profile textarea:focus {
+  outline: none;
+  border-color: var(--violet);
+}
+.profile input:disabled,
+.profile textarea:disabled {
+  opacity: 0.5;
+}
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profile-actions small {
+  flex: 1;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.profile-count {
+  flex: none;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.profile-actions .voice-btn:disabled {
+  opacity: 0.5;
+}

@@ -48,3 +48,14 @@ export async function getWakeWord(connection: Connection): Promise<boolean> {
 export async function setWakeWord(connection: Connection, enabled: boolean): Promise<void> {
   await request(connection, "/wake-word", { method: "PUT", body: JSON.stringify({ enabled }) });
 }
+
+/** Cómo se llama el usuario y qué cuenta de sí mismo. */
+export type Profile = { name: string; about: string };
+
+export async function getProfile(connection: Connection): Promise<Profile> {
+  return (await request(connection, "/profile")).json();
+}
+
+export async function setProfile(connection: Connection, profile: Profile): Promise<void> {
+  await request(connection, "/profile", { method: "PUT", body: JSON.stringify(profile) });
+}
