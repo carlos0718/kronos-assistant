@@ -99,7 +99,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 | Pieza | Interfaz | Implementación inicial | Qué permite cambiar |
 |---|---|---|---|
 | Detección de voz | `VAD` | Silero (ONNX) | Otro detector |
-| Voz a texto | `STT` | faster-whisper | whisper.cpp u otro |
+| Voz a texto | `STT` | faster-whisper; Parakeet v3 con `KRONOS_STT_MODEL=parakeet` | whisper.cpp u otro |
 | Texto a voz | `TTS` | Piper | Kokoro, otras voces o motores |
 | Palabra de activación | `WakeWord` | whisper: transcribe y busca «Kronos» | Un detector entrenado (openWakeWord, livekit-wakeword) |
 | Modelo de lenguaje | `LLMProvider` | Ollama, Anthropic, OpenAI | Gemini, OpenRouter, "Sign in with ChatGPT" |
