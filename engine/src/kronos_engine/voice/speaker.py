@@ -29,13 +29,19 @@ class VoiceSpeaker:
         self._tts = tts
         self._play = play
 
-    async def speak(self, sentences: AsyncIterator[str]) -> None:
+    async def speak(
+        self, sentences: AsyncIterator[str], on_start: Callable[[], None] | None = None
+    ) -> None:
         # Mientras suena una frase se va preparando la siguiente: así no queda
         # un silencio entre frase y frase.
         ready: asyncio.Queue[Speech | None] = asyncio.Queue()
         preparing = asyncio.create_task(self._prepare(sentences, ready))
         try:
             while (speech := await ready.get()) is not None:
+                if on_start:
+                    # Solo la primera frase: es la que el usuario estaba esperando.
+                    on_start()
+                    on_start = None
                 await self._play(speech.samples, speech.sample_rate)
             await preparing  # Si la preparación falló, el error sale acá.
         finally:

@@ -106,3 +106,27 @@ def test_un_fallo_de_la_voz_se_informa() -> None:
 
     with pytest.raises(RuntimeError, match="sin voz"):
         asyncio.run(speaker.speak(sentences("Hola.")))
+
+
+def test_avisa_una_sola_vez_cuando_empieza_a_sonar() -> None:
+    async def scenario() -> list[str]:
+        log: list[str] = []
+        player = FakePlayer()
+        speaker = VoiceSpeaker(FakeTts(), player)
+        await speaker.speak(
+            sentences("Uno.", "Dos."),
+            lambda: log.append(f"empieza con {len(player.played)} frases dichas"),
+        )
+        return log
+
+    assert asyncio.run(scenario()) == ["empieza con 0 frases dichas"]
+
+
+def test_si_no_hay_nada_para_decir_no_avisa_que_empezo() -> None:
+    started: list[bool] = []
+
+    asyncio.run(
+        VoiceSpeaker(FakeTts(), FakePlayer()).speak(sentences("😊"), lambda: started.append(True))
+    )
+
+    assert started == []

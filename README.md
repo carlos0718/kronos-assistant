@@ -2,9 +2,9 @@
 
 > Nombre del proyecto: **Kronos AI Assistant** (antes "Proyecto X"). Palabra de activación: **"Kronos"**.
 >
-> Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
+> Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Latencia y consumo medidos: [docs/MEDICIONES.md](docs/MEDICIONES.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **Fase 1 en curso (v0.7.1).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. Falta medir latencia y consumo.
+> Estado: **Fase 1 en curso (v0.8.0).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. La latencia y el consumo ya se miden (`pnpm engine:measure`); falta decidir el hardware mínimo con esos números.
 
 ## La idea
 
@@ -324,7 +324,7 @@ El detalle está en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 Construcción, según las fases del documento de arquitectura:
 
 - [x] **Fase 0:** esqueleto del monorepo y prueba de empaquetado (motor "hola mundo" con PyInstaller como recurso de Tauri, con instalador para Windows). Comprobado el 12 nov. 2026: el instalador pesa 14 MB y la app instalada arranca el motor y se conecta con él.
-- [ ] **Fase 1:** bucle de voz con overlay (atajo → escuchar → modelo → hablar). Medir latencia y consumo para definir el hardware mínimo.
+- [ ] **Fase 1:** bucle de voz con overlay (atajo → escuchar → modelo → hablar). Medir latencia y consumo para definir el hardware mínimo. Primera medición el 14 nov. 2026 ([docs/MEDICIONES.md](docs/MEDICIONES.md)): la transcripción es casi toda la demora.
 - [ ] **Fase 2:** herramientas y niveles de permiso, con confirmación y clave secreta.
 - [ ] **Fase 3:** memoria persistente cifrada.
 - [ ] **Fase 4:** rutinas, "avisar y esperar" y Google Calendar.

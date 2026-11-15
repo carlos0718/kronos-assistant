@@ -45,8 +45,13 @@ class DemoSpeaker:
     def __init__(self, step_seconds: float) -> None:
         self._step = step_seconds
 
-    async def speak(self, sentences: AsyncIterator[str]) -> None:
+    async def speak(
+        self, sentences: AsyncIterator[str], on_start: Callable[[], None] | None = None
+    ) -> None:
         async for _ in sentences:
+            if on_start:
+                on_start()
+                on_start = None
             await asyncio.sleep(self._step)
 
 
