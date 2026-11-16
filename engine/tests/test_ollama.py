@@ -1,12 +1,13 @@
 import asyncio
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import httpx
 import pytest
 
 from kronos_engine.core.llm import LLMError, Message
+from kronos_engine.core.tools import ToolCall, ToolSpec
 from kronos_engine.llm.ollama import OllamaProvider
 
 MESSAGES = [Message("system", "Sos Kronos."), Message("user", "Hola")]
@@ -24,9 +25,13 @@ def provider(handler: Callable[[httpx.Request], httpx.Response]) -> OllamaProvid
     return OllamaProvider("qwen3:8b", transport=httpx.MockTransport(handler))
 
 
-def collect(ollama: OllamaProvider) -> list[str]:
-    async def scenario() -> list[str]:
-        return [delta async for delta in ollama.stream(MESSAGES)]
+def collect(
+    ollama: OllamaProvider,
+    messages: Sequence[Message] = MESSAGES,
+    tools: Sequence[ToolSpec] = (),
+) -> list[str | ToolCall]:
+    async def scenario() -> list[str | ToolCall]:
+        return [piece async for piece in ollama.stream(messages, tools)]
 
     return asyncio.run(scenario())
 
@@ -136,3 +141,98 @@ def test_load_no_falla_si_ollama_no_esta_abierto() -> None:
         raise httpx.ConnectError("conexión rechazada", request=request)
 
     asyncio.run(provider(handler).load())  # El aviso llega cuando el usuario habla.
+
+
+OPEN_APP = ToolSpec(
+    "open_app",
+    "Abre una aplicación.",
+    {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}},
+)
+
+
+def test_le_ofrece_al_modelo_las_acciones_disponibles() -> None:
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, content=ndjson(chunk("", True)))
+
+    collect(provider(handler), tools=[OPEN_APP])
+
+    assert json.loads(sent[0].content)["tools"] == [
+        {
+            "type": "function",
+            "function": {
+                "name": "open_app",
+                "description": "Abre una aplicación.",
+                "parameters": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {"name": {"type": "string"}},
+                },
+            },
+        }
+    ]
+
+
+def test_entrega_las_acciones_que_pide_el_modelo() -> None:
+    call = {
+        "message": {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {"function": {"index": 0, "name": "open_app", "arguments": {"name": "Spotify"}}}
+            ],
+        },
+        "done": False,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=ndjson(chunk("Dale. "), call, chunk("", True)))
+
+    assert collect(provider(handler), tools=[OPEN_APP]) == [
+        "Dale. ",
+        ToolCall("open_app", {"name": "Spotify"}),
+    ]
+
+
+def test_una_accion_sin_datos_llega_con_los_datos_vacios() -> None:
+    call = {
+        "message": {"role": "assistant", "tool_calls": [{"function": {"name": "current_time"}}]},
+        "done": False,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=ndjson(call, chunk("", True)))
+
+    assert collect(provider(handler)) == [ToolCall("current_time", {})]
+
+
+def test_le_manda_al_modelo_las_acciones_que_pidio_y_sus_resultados() -> None:
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, content=ndjson(chunk("", True)))
+
+    messages = [
+        Message("user", "Abrí Spotify"),
+        Message("assistant", "", tool_calls=(ToolCall("open_app", {"name": "Spotify"}),)),
+        Message("tool", "Se abrió Spotify.", tool_name="open_app"),
+    ]
+    collect(provider(handler), messages)
+
+    assert json.loads(sent[0].content)["messages"] == [
+        {"role": "user", "content": "Abrí Spotify"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {"index": 0, "name": "open_app", "arguments": {"name": "Spotify"}},
+                }
+            ],
+        },
+        {"role": "tool", "content": "Se abrió Spotify.", "tool_name": "open_app"},
+    ]

@@ -90,7 +90,7 @@ kronos-assistant/
 └─ .github/workflows/        # Chequeos de cada pull request
 ```
 
-Hoy existen `api/`, `core/`, `voice/`, `llm/`, `agent/` y `config/`; los demás paquetes del motor llegan con su fase. Qué puede importar cada uno está en [CODIGO.md](CODIGO.md#2-capas-del-motor).
+Hoy existen `api/`, `core/`, `voice/`, `llm/`, `agent/`, `config/`, `tools/`, `permissions/` y `platform/`; los demás paquetes del motor llegan con su fase. Qué puede importar cada uno está en [CODIGO.md](CODIGO.md#2-capas-del-motor).
 
 ## 4. Piezas intercambiables
 
@@ -103,7 +103,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 | Texto a voz | `TTS` | Piper | Kokoro, otras voces o motores |
 | Palabra de activación | `WakeWord` | El reconocedor de voz: transcribe y busca «Kronos» | Un detector entrenado (openWakeWord, livekit-wakeword) |
 | Modelo de lenguaje | `LLMProvider` | Ollama, Anthropic, OpenAI | Gemini, OpenRouter, "Sign in with ChatGPT" |
-| Acciones | `Tool` | Apps, archivos, sistema, terminal | Nuevos plugins |
+| Acciones | `Tool` | Hoy: decir la hora y abrir aplicaciones. Después: archivos, sistema, terminal | Nuevos plugins |
 | Calendario | `CalendarProvider` | Google Calendar | `.ics`/CalDAV, Outlook, Notion |
 | Sistema operativo | `Platform` | Windows | macOS, Linux |
 
@@ -149,6 +149,8 @@ Acción propuesta ──► Clasificar nivel ──┬─ Nivel 1 ──► Ejec
 - **Contenido no confiable:** el texto de notificaciones, correos o páginas web se marca como dato. Toda acción pedida en un turno que lo incluya exige, como mínimo, confirmación.
 - **Auditoría:** cada acción ejecutada o rechazada queda en un registro local.
 - **Privilegios:** el motor nunca corre como administrador.
+
+Hoy `permissions/` ejecuta el nivel 1 y rechaza el 4. Los niveles 2 y 3 también se rechazan, hasta que existan la confirmación y la clave secreta. El registro de auditoría todavía son líneas `motor:` en la terminal, con el nombre de la acción y sin sus datos.
 
 ## 7. Datos en disco
 

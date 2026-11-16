@@ -1,6 +1,6 @@
 [project]
 name = "kronos-engine"
-version = "0.9.0"
+version = "0.10.0"
 description = "Motor de Kronos AI Assistant: voz, LLM, herramientas, permisos y memoria."
 authors = [
     { name = "carlos0718", email = "62729276+carlos0718@users.noreply.github.com" }
@@ -77,7 +77,7 @@ type = "layers"
 layers = [
     "kronos_engine.__main__",
     "kronos_engine.pipeline",
-    "kronos_engine.api | kronos_engine.agent | kronos_engine.config | kronos_engine.llm | kronos_engine.voice",
+    "kronos_engine.api | kronos_engine.agent | kronos_engine.config | kronos_engine.llm | kronos_engine.permissions | kronos_engine.platform | kronos_engine.tools | kronos_engine.voice",
     "kronos_engine.core",
 ]
 

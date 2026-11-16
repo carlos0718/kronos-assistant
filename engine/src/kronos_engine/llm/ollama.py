@@ -5,11 +5,12 @@ import contextlib
 import json
 import threading
 from collections.abc import AsyncIterator, Sequence
-from dataclasses import asdict
+from typing import Any
 
 import httpx
 
 from kronos_engine.core.llm import LLMError, Message
+from kronos_engine.core.tools import ToolCall, ToolSpec
 
 DEFAULT_URL = "http://127.0.0.1:11434"
 
@@ -18,6 +19,34 @@ _TIMEOUT = httpx.Timeout(120, connect=5)
 # Cuánto queda el modelo en memoria sin uso. Ollama lo descarga a los 5 minutos
 # y volver a cargarlo tarda varios segundos: demasiado para una conversación.
 _KEEP_ALIVE = "30m"
+
+
+def _wire_message(message: Message) -> dict[str, Any]:
+    """Un mensaje, en el formato de Ollama."""
+    wire: dict[str, Any] = {"role": message.role, "content": message.content}
+    if message.tool_calls:
+        wire["tool_calls"] = [
+            {
+                "type": "function",
+                "function": {"index": index, "name": call.name, "arguments": dict(call.arguments)},
+            }
+            for index, call in enumerate(message.tool_calls)
+        ]
+    if message.tool_name:
+        wire["tool_name"] = message.tool_name
+    return wire
+
+
+def _wire_tool(tool: ToolSpec) -> dict[str, Any]:
+    """Una acción que se le ofrece al modelo, en el formato de Ollama."""
+    return {
+        "type": "function",
+        "function": {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": dict(tool.parameters),
+        },
+    }
 
 
 class OllamaProvider:
@@ -48,15 +77,19 @@ class OllamaProvider:
             async with self._client() as client:
                 await client.post("/api/chat", json=request)
 
-    async def stream(self, messages: Sequence[Message]) -> AsyncIterator[str]:
-        request = {
+    async def stream(
+        self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
+    ) -> AsyncIterator[str | ToolCall]:
+        request: dict[str, Any] = {
             "model": self._model,
-            "messages": [asdict(message) for message in messages],
+            "messages": [_wire_message(message) for message in messages],
             "stream": True,
             # Sin razonamiento previo: en una conversación hablada importa responder rápido.
             "think": False,
             "keep_alive": _KEEP_ALIVE,
         }
+        if tools:
+            request["tools"] = [_wire_tool(tool) for tool in tools]
         try:
             async with (
                 self._client() as client,
@@ -70,8 +103,13 @@ class OllamaProvider:
                     event = json.loads(line)
                     if error := event.get("error"):
                         raise LLMError(f"Ollama informó un error: {error}")
-                    if content := event.get("message", {}).get("content"):
+                    message = event.get("message") or {}
+                    if content := message.get("content"):
                         yield content
+                    # Ollama manda cada acción entera, no de a pedazos.
+                    for call in message.get("tool_calls") or []:
+                        function = call.get("function") or {}
+                        yield ToolCall(function.get("name", ""), function.get("arguments") or {})
         except httpx.ConnectError as exc:
             raise LLMError("No se pudo conectar con Ollama. ¿Está abierto?") from exc
         except httpx.TimeoutException as exc:

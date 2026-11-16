@@ -1,6 +1,7 @@
 """Arma las piezas con las que arranca el motor."""
 
 import os
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,7 @@ from kronos_engine.core.demo import (
 from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
+from kronos_engine.core.tools import Tool
 from kronos_engine.core.voices import VoiceControl
 
 if TYPE_CHECKING:
@@ -66,6 +68,21 @@ def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt":
     return WhisperStt(name, language=language)
 
 
+def available_tools() -> list[Tool]:
+    """Las acciones que Kronos puede ejecutar en este sistema."""
+    from kronos_engine.tools.apps import OpenAppTool
+    from kronos_engine.tools.clock import CurrentTimeTool
+
+    tools: list[Tool] = [CurrentTimeTool()]
+    if sys.platform == "win32":
+        from kronos_engine.platform.windows.apps import WindowsPlatform
+
+        platform = WindowsPlatform()
+        platform.preload()
+        tools.append(OpenAppTool(platform))
+    return tools
+
+
 def build() -> Parts:
     if os.environ.get(PIPELINE_ENV) == "demo":
         return Parts(
@@ -79,6 +96,7 @@ def build() -> Parts:
     from kronos_engine.config.profile import StoredProfile
     from kronos_engine.config.settings import SettingsStore
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
+    from kronos_engine.permissions.gate import PermissionGate
     from kronos_engine.voice.catalog import DEFAULT_VOICES
     from kronos_engine.voice.listener import VoiceListener
     from kronos_engine.voice.microphone import open_microphone
@@ -106,6 +124,8 @@ def build() -> Parts:
     model.preload()
 
     profile = StoredProfile(store)
+    # El modelo propone las acciones; el control de permisos decide si se ejecutan.
+    tools = PermissionGate(available_tools())
 
     def current_instructions() -> str:
         # Se lee en cada respuesta: el usuario puede cambiar su perfil sin reiniciar.
@@ -114,7 +134,7 @@ def build() -> Parts:
 
     pipeline = Pipeline(
         listener=VoiceListener(open_microphone, SileroVad(), stt),
-        responder=AgentResponder(model, current_instructions),
+        responder=AgentResponder(model, current_instructions, tools=tools),
         speaker=VoiceSpeaker(tts, play),
     )
 

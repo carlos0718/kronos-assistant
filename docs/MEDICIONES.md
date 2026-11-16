@@ -94,8 +94,21 @@ El 16 nov. se usó Parakeet en una conversación de tres minutos con micrófono,
 
 Ese día Ollama respondió más lento que el 14 nov. (entre 10 y 20 tokens por segundo en lugar de 38), sin que se buscara la causa: los tiempos del modelo de lenguaje de las dos fechas no son comparables.
 
+## Resultados del 16 nov. 2026: turnos con acciones
+
+Desde la v0.10.0 el modelo puede pedir una acción (decir la hora, abrir una aplicación). Ese turno le pregunta dos veces al modelo: una para que elija la acción y otra para que cuente el resultado. Se midió solo el paso del modelo, con el texto escrito y sin voz, en el mismo equipo y con `qwen3:8b`:
+
+| Turno | Cuántos | Primera palabra (mediana) | Mínimo | Máximo |
+|---|---|---|---|---|
+| Sin acción | 7 | 0,33 s | 0,19 s | 1,20 s |
+| Con una acción | 11 | 1,83 s | 0,92 s | 2,71 s |
+
+- **Un turno con acción tarda cerca de un segundo y medio más** en empezar a contestar. Casi todo es la segunda pregunta al modelo; ejecutar la acción no se nota.
+- **Listar las aplicaciones de Windows tarda 1,1 s.** Por eso la lista se arma al arrancar y se guarda cinco minutos.
+
 ## Qué falta medir
 
+- Un turno con acción de punta a punta, con voz real.
 - Cuántas respuestas cortas («sí», «no») pasa Parakeet a otro idioma con voz real.
 - Por qué se pierden algunas frases antes de llegar al reconocedor.
 - Un equipo sin placa de video, con el modelo local en el procesador.
