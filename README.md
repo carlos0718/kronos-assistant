@@ -4,7 +4,7 @@
 >
 > Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **Fase 1 en curso (v0.7.0).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. Falta medir latencia y consumo.
+> Estado: **Fase 1 en curso (v0.7.1).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. Falta medir latencia y consumo.
 
 ## La idea
 
@@ -78,7 +78,7 @@ El usuario puede cambiar de proveedor o de modelo cuando quiera. Formas de conex
 - **A futuro, speech-to-speech nativo:** modelos donde el audio entra y el audio sale directamente, como Moshi, Qwen2.5-Omni o GLM-4-Voice. Por ahora son más débiles ejecutando acciones (*tool calling*) y requieren más GPU. Por eso la capa de voz será un **módulo intercambiable**.
 
 ### Flujo de conversación
-- Tras responder, el asistente **sigue escuchando unos segundos** para que el usuario conteste sin volver a activarlo.
+- Tras responder, el asistente **sigue escuchando unos segundos** para que el usuario conteste sin volver a activarlo. Cuántos se elige en la pestaña Voz de la configuración (8 de fábrica, hasta 60; con 0 no sigue escuchando).
 - En el MVP **no se lo puede interrumpir por voz** mientras habla; sí se lo puede cortar con el atajo de teclado.
 - **Errores de transcripción:** el overlay muestra lo que el asistente entendió, así el error se ve al momento. Formas de corregir:
   - Repetir la frase o decir "corrige: ...".

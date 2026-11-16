@@ -81,7 +81,9 @@ def main() -> None:
     print(f"{READY_PREFIX} {json.dumps(ready)}", flush=True)
 
     parts = build()
-    app = create_app(token, parts.pipeline, parts.voices, parts.standby, parts.profile)
+    app = create_app(
+        token, parts.pipeline, parts.voices, parts.standby, parts.profile, parts.follow_up
+    )
     config = uvicorn.Config(app, log_level="warning", ws="websockets-sansio")
     uvicorn.Server(config).run(sockets=[sock])
 

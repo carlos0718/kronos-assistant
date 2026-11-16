@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react";
-import { type Connection, listVoices, previewVoice, selectVoice, type Voice } from "../../engine/api";
+import { useEffect, useRef, useState } from "react";
+import {
+  type Connection,
+  getFollowUp,
+  listVoices,
+  previewVoice,
+  selectVoice,
+  setFollowUp,
+  type Voice,
+} from "../../engine/api";
 import { Group, Row, Slider, Value } from "../controls";
 import "./VoiceTab.css";
 
@@ -8,29 +16,46 @@ const LANGUAGES = [
   { id: "en", title: "Voces en inglés" },
 ] as const;
 const GENDER_LABEL = { female: "Mujer", male: "Hombre" };
+// El mismo tope que valida el motor (`core/follow_up.py`).
+const FOLLOW_UP_MAX = 60;
+// Mientras se arrastra el deslizador no se guarda cada paso: se espera a que se detenga.
+const SAVE_DELAY_MS = 300;
 
 export function VoiceTab({ connection }: { connection: Connection | null }) {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [current, setCurrent] = useState("");
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Valor de muestra: todavía no se guarda ni llega al motor.
-  const [listenAfter, setListenAfter] = useState(5);
+  // Hasta que el motor informa la espera guardada, el deslizador queda apagado.
+  const [followUp, setFollowUpSeconds] = useState<number | null>(null);
+  const saving = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!connection) return;
     let stale = false;
-    listVoices(connection)
-      .then((list) => {
+    Promise.all([listVoices(connection), getFollowUp(connection)])
+      .then(([list, seconds]) => {
         if (stale) return;
         setVoices(list.voices);
         setCurrent(list.current);
+        setFollowUpSeconds(seconds);
       })
       .catch((e) => !stale && setError(String(e.message ?? e)));
     return () => {
       stale = true;
     };
   }, [connection]);
+
+  function changeFollowUp(seconds: number) {
+    if (!connection) return;
+    setFollowUpSeconds(seconds);
+    setError(null);
+    window.clearTimeout(saving.current);
+    // No se cancela al salir de la pestaña: el último valor elegido se guarda igual.
+    saving.current = window.setTimeout(() => {
+      setFollowUp(connection, seconds).catch((e) => setError(String(e.message ?? e)));
+    }, SAVE_DELAY_MS);
+  }
 
   async function choose(id: string) {
     if (!connection) return;
@@ -99,13 +124,14 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
         );
       })}
 
-      <Group title="Conversación">
+      <Group title="Conversación" hint="con 0, la conversación termina después de cada respuesta">
         <Slider
           label="Seguir escuchando después de responder (segundos)"
           icon="mic"
-          value={listenAfter}
-          onChange={setListenAfter}
-          max={15}
+          value={followUp ?? 0}
+          onChange={changeFollowUp}
+          max={FOLLOW_UP_MAX}
+          disabled={!connection || followUp === null}
         />
       </Group>
 

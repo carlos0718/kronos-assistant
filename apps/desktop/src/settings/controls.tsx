@@ -74,9 +74,10 @@ type SliderProps = {
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  disabled?: boolean;
 };
 
-export function Slider({ label, icon, value, onChange, min = 0, max = 100 }: SliderProps) {
+export function Slider({ label, icon, value, onChange, min = 0, max = 100, disabled }: SliderProps) {
   const pct = ((value - min) / (max - min)) * 100;
   return (
     <div className="slider">
@@ -91,6 +92,7 @@ export function Slider({ label, icon, value, onChange, min = 0, max = 100 }: Sli
             min={min}
             max={max}
             value={value}
+            disabled={disabled}
             aria-label={label}
             style={{ "--pct": `${pct}%` } as CSSProperties}
             onChange={(e) => onChange(Number(e.target.value))}

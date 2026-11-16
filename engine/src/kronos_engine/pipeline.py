@@ -4,7 +4,14 @@ import os
 from dataclasses import dataclass
 
 from kronos_engine.core.conversation import Pipeline
-from kronos_engine.core.demo import DemoProfile, DemoVoices, DemoWakeWord, demo_pipeline
+from kronos_engine.core.demo import (
+    DemoFollowUp,
+    DemoProfile,
+    DemoVoices,
+    DemoWakeWord,
+    demo_pipeline,
+)
+from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.voices import VoiceControl
@@ -13,6 +20,10 @@ from kronos_engine.core.voices import VoiceControl
 PIPELINE_ENV = "KRONOS_PIPELINE"
 # Idioma en que se transcribe ("es", "en"). PROVISORIO: irá en la configuración.
 LANGUAGE_ENV = "KRONOS_LANGUAGE"
+# Modelo de whisper que transcribe ("small", "medium", "large-v3-turbo"…). Los
+# más grandes entienden mejor y tardan más. PROVISORIO: irá en la configuración.
+STT_MODEL_ENV = "KRONOS_STT_MODEL"
+DEFAULT_STT_MODEL = "small"
 
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
 MODEL_ENV = "KRONOS_LLM_MODEL"
@@ -33,15 +44,19 @@ class Parts:
     voices: VoiceControl
     standby: Standby
     profile: ProfileControl
+    follow_up: FollowUpControl
 
 
 def build() -> Parts:
     if os.environ.get(PIPELINE_ENV) == "demo":
-        return Parts(demo_pipeline(), DemoVoices(), Standby(DemoWakeWord()), DemoProfile())
+        return Parts(
+            demo_pipeline(), DemoVoices(), Standby(DemoWakeWord()), DemoProfile(), DemoFollowUp()
+        )
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
     from kronos_engine.agent.instructions import instructions_for
     from kronos_engine.agent.responder import AgentResponder
+    from kronos_engine.config.follow_up import StoredFollowUp
     from kronos_engine.config.profile import StoredProfile
     from kronos_engine.config.settings import SettingsStore
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
@@ -62,7 +77,7 @@ def build() -> Parts:
     default_voice = DEFAULT_VOICES.get(language, DEFAULT_VOICES["es"])
 
     # Los tres modelos se cargan mientras el usuario todavía no habló.
-    stt = WhisperStt(language=language)
+    stt = WhisperStt(os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL), language=language)
     stt.preload()
     tts = PiperTts(settings.voice or os.environ.get(VOICE_ENV) or default_voice)
     tts.preload()
@@ -93,4 +108,4 @@ def build() -> Parts:
         remember=lambda enabled: store.update(wake_word=enabled),
     )
     voices = PiperVoices(tts, PiperTts, play, lambda voice: store.update(voice=voice))
-    return Parts(pipeline, voices, standby, profile)
+    return Parts(pipeline, voices, standby, profile, StoredFollowUp(store))

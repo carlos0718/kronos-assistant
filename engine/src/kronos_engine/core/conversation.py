@@ -19,13 +19,16 @@ log = logging.getLogger(__name__)
 
 class Listener(Protocol):
     async def listen(
-        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+        self,
+        on_speech_end: Callable[[], Awaitable[None]] | None = None,
+        wait_seconds: float | None = None,
     ) -> str | None:
         """Escucha hasta el fin de la frase y devuelve lo que entendió.
 
         Llama a `on_speech_end` cuando deja de escuchar y pasa a transcribir.
-        Devuelve `None` si nadie habló, y un texto vacío si oyó algo pero no
-        lo entendió.
+        `wait_seconds` es cuánto espera a que alguien empiece a hablar; sin
+        ese dato usa su propia espera. Devuelve `None` si nadie habló, y un
+        texto vacío si oyó algo pero no lo entendió.
         """
         ...
 
@@ -54,6 +57,8 @@ class Pipeline:
 
 SetState = Callable[[AssistantState], Awaitable[None]]
 Emit = Callable[[ServerMessage, dict[str, Any]], Awaitable[None]]
+# Segundos que se espera otra frase después de responder; cero es no esperar.
+FollowUp = Callable[[], float]
 
 
 async def _drain(sentences: asyncio.Queue[str | None]) -> AsyncIterator[str]:
@@ -63,8 +68,19 @@ async def _drain(sentences: asyncio.Queue[str | None]) -> AsyncIterator[str]:
 
 
 class Conversation:
-    def __init__(self, pipeline: Pipeline, set_state: SetState, emit: Emit) -> None:
+    def __init__(
+        self,
+        pipeline: Pipeline,
+        set_state: SetState,
+        emit: Emit,
+        follow_up: FollowUp | None = None,
+    ) -> None:
+        """`follow_up` se consulta después de cada respuesta: el usuario puede cambiarla.
+
+        Sin ella, la espera es siempre la del oyente.
+        """
         self._pipeline = pipeline
+        self._follow_up = follow_up
         self._notify_state = set_state
         self._state = AssistantState.IDLE
         self._emit = emit
@@ -105,6 +121,9 @@ class Conversation:
         error: str | None = None
         try:
             text: str | None = heard or await self._listen()
+            # Hasta la primera respuesta la espera es la del oyente; después,
+            # la que eligió el usuario.
+            wait_seconds: float | None = None
             # Después de responder vuelve a escuchar, por si el usuario sigue.
             # La conversación termina cuando nadie habla.
             while text is not None:
@@ -114,11 +133,12 @@ class Conversation:
                     await self._emit(ServerMessage.TRANSCRIPT_FINAL, {"text": text})
                     await self._set_state(AssistantState.THINKING)
                     await self._reply(text)
+                    if self._follow_up:
+                        wait_seconds = self._follow_up()
                 else:
                     # Un ruido o algo que no se pudo transcribir: sigue escuchando.
                     log.info("Se oyó algo que no se entendió; sigue escuchando.")
-                text = await self._listen()
-            log.info("Nadie habló; termina la conversación.")
+                text = await self._listen(wait_seconds)
         except Exception as exc:  # noqa: BLE001 - cualquier fallo se le informa al usuario.
             error = str(exc) or type(exc).__name__
             log.warning("La conversación terminó por un fallo: %s", error)
@@ -128,10 +148,18 @@ class Conversation:
         if error:
             await self._emit(ServerMessage.ERROR, {"message": error})
 
-    async def _listen(self) -> str | None:
+    async def _listen(self, wait_seconds: float | None = None) -> str | None:
+        if wait_seconds is not None and wait_seconds <= 0:
+            log.info("Seguir escuchando está apagado; termina la conversación.")
+            return None
         await self._set_state(AssistantState.LISTENING)
-        text = await self._pipeline.listener.listen(self._stop_listening)
-        return None if text is None else text.strip()
+        text = await self._pipeline.listener.listen(self._stop_listening, wait_seconds)
+        if text is None:
+            # Con la espera a la vista se distingue un plazo corto de un micrófono que no oye.
+            waited = "" if wait_seconds is None else f" en {wait_seconds:g} s"
+            log.info("Nadie habló%s; termina la conversación.", waited)
+            return None
+        return text.strip()
 
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.

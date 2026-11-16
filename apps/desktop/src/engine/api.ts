@@ -59,3 +59,13 @@ export async function getProfile(connection: Connection): Promise<Profile> {
 export async function setProfile(connection: Connection, profile: Profile): Promise<void> {
   await request(connection, "/profile", { method: "PUT", body: JSON.stringify(profile) });
 }
+
+/** Segundos que Kronos sigue escuchando después de responder; con cero no sigue. */
+export async function getFollowUp(connection: Connection): Promise<number> {
+  const body: { seconds: number } = await (await request(connection, "/follow-up")).json();
+  return body.seconds;
+}
+
+export async function setFollowUp(connection: Connection, seconds: number): Promise<void> {
+  await request(connection, "/follow-up", { method: "PUT", body: JSON.stringify({ seconds }) });
+}

@@ -7,6 +7,7 @@ import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from kronos_engine.core.conversation import Pipeline
+from kronos_engine.core.follow_up import DEFAULT_SECONDS
 from kronos_engine.core.profile import Profile
 from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
 
@@ -22,7 +23,9 @@ class DemoListener:
         self._heard = False
 
     async def listen(
-        self, on_speech_end: Callable[[], Awaitable[None]] | None = None
+        self,
+        on_speech_end: Callable[[], Awaitable[None]] | None = None,
+        wait_seconds: float | None = None,
     ) -> str | None:
         await asyncio.sleep(self._step)
         self._heard = not self._heard
@@ -66,6 +69,19 @@ class DemoProfile:
 
     def set(self, profile: Profile) -> None:
         self._profile = profile
+
+
+class DemoFollowUp:
+    """Una espera que solo vive en la memoria."""
+
+    def __init__(self) -> None:
+        self._seconds = DEFAULT_SECONDS
+
+    def get(self) -> int:
+        return self._seconds
+
+    def set(self, seconds: int) -> None:
+        self._seconds = seconds
 
 
 class DemoVoices:

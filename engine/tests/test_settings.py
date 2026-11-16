@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from kronos_engine.config.settings import Settings, SettingsStore
 
 
@@ -13,7 +15,9 @@ def test_lo_que_se_guarda_se_vuelve_a_leer(tmp_path: Path) -> None:
     SettingsStore(path).save(Settings(voice="es_ES-davefx-medium"))
 
     assert SettingsStore(path).load() == Settings(voice="es_ES-davefx-medium")
-    assert path.read_text(encoding="utf-8") == 'voice = "es_ES-davefx-medium"\nwake_word = false\n'
+    assert path.read_text(encoding="utf-8") == (
+        'voice = "es_ES-davefx-medium"\nwake_word = false\nfollow_up_seconds = 8\n'
+    )
 
 
 def test_el_perfil_se_guarda_y_se_vuelve_a_leer(tmp_path: Path) -> None:
@@ -46,3 +50,19 @@ def test_cambiar_un_ajuste_conserva_los_demas(tmp_path: Path) -> None:
     store.update(wake_word=True)
 
     assert store.load() == Settings(voice="es_ES-davefx-medium", wake_word=True)
+
+
+def test_la_espera_despues_de_responder_se_guarda_y_se_vuelve_a_leer(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path / "config.toml")
+
+    store.update(follow_up_seconds=20)
+
+    assert store.load() == Settings(follow_up_seconds=20)
+
+
+@pytest.mark.parametrize("value", ["-1", "61", "2.5", "true", '"ocho"'])
+def test_una_espera_invalida_vuelve_a_la_de_fabrica(tmp_path: Path, value: str) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(f"follow_up_seconds = {value}\n", encoding="utf-8")
+
+    assert SettingsStore(path).load() == Settings()

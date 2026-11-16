@@ -8,6 +8,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.core.conversation import Conversation, Pipeline
+from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.protocol import AssistantState, ServerMessage
 from kronos_engine.core.standby import Standby
 
@@ -18,10 +19,10 @@ def message(type_: ServerMessage, payload: dict[str, Any] | None = None) -> dict
 
 
 class Hub:
-    def __init__(self, pipeline: Pipeline, standby: Standby) -> None:
+    def __init__(self, pipeline: Pipeline, standby: Standby, follow_up: FollowUpControl) -> None:
         self.state = AssistantState.IDLE
         self._clients: set[WebSocket] = set()
-        self.conversation = Conversation(pipeline, self.set_state, self.emit)
+        self.conversation = Conversation(pipeline, self.set_state, self.emit, follow_up.get)
         self.standby = standby
         # Oír el nombre empieza una conversación, igual que el atajo.
         standby.connect(self.conversation.activate)

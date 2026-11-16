@@ -10,6 +10,8 @@ from typing import Any
 
 import tomli_w
 
+from kronos_engine.core.follow_up import DEFAULT_SECONDS, MAX_SECONDS
+
 log = logging.getLogger(__name__)
 
 
@@ -19,6 +21,15 @@ class Settings:
     wake_word: bool = False  # Si Kronos escucha su nombre para activarse.
     user_name: str | None = None  # Cómo quiere el usuario que lo llamen.
     user_about: str | None = None  # Descripción corta del usuario, como contexto.
+    # Segundos que sigue escuchando después de responder; cero es no seguir.
+    follow_up_seconds: int = DEFAULT_SECONDS
+
+
+def _follow_up_seconds(value: object) -> int:
+    # `bool` es un `int` para Python: `true` no cuenta como un segundo.
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= MAX_SECONDS:
+        return value
+    return DEFAULT_SECONDS
 
 
 def config_dir() -> Path:
@@ -51,6 +62,7 @@ class SettingsStore:
             wake_word=wake_word if isinstance(wake_word, bool) else False,
             user_name=user_name if isinstance(user_name, str) else None,
             user_about=user_about if isinstance(user_about, str) else None,
+            follow_up_seconds=_follow_up_seconds(data.get("follow_up_seconds")),
         )
 
     def save(self, settings: Settings) -> None:
