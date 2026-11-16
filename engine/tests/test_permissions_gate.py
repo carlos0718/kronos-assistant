@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from kronos_engine.core.approval import ApprovalRequest
 from kronos_engine.core.tools import PermissionLevel, ToolCall, ToolError, ToolSpec
 from kronos_engine.permissions.gate import PermissionGate
 
@@ -15,11 +16,18 @@ class FakeTool:
         name: str,
         level: PermissionLevel = PermissionLevel.NORMAL,
         fail_with: Exception | None = None,
+        cannot: str = "",
     ) -> None:
+        self._cannot = cannot
         self.spec = ToolSpec(name, f"Acción {name}.")
         self.level = level
         self._fail_with = fail_with
         self.ran: list[Mapping[str, Any]] = []
+
+    async def describe(self, arguments: Mapping[str, Any]) -> str:
+        if self._cannot:
+            raise ToolError(self._cannot)
+        return f"hacer {self.spec.name} con {dict(arguments)}"
 
     async def run(self, arguments: Mapping[str, Any]) -> str:
         self.ran.append(arguments)
@@ -28,8 +36,95 @@ class FakeTool:
         return f"{self.spec.name} hecho"
 
 
+class FakeApprover:
+    def __init__(self, answer: bool) -> None:
+        self._answer = answer
+        self.asked: list[ApprovalRequest] = []
+
+    async def confirm(self, request: ApprovalRequest) -> bool:
+        self.asked.append(request)
+        return self._answer
+
+
 def run(gate: PermissionGate, call: ToolCall) -> str:
     return asyncio.run(gate.run(call))
+
+
+def test_una_accion_delicada_se_ejecuta_si_el_usuario_la_aprueba() -> None:
+    tool = FakeTool("close_app", PermissionLevel.SENSITIVE)
+    approver = FakeApprover(True)
+
+    result = run(PermissionGate([tool], approver), ToolCall("close_app", {"name": "Spotify"}))
+
+    assert result == "close_app hecho"
+    assert approver.asked == [
+        ApprovalRequest("close_app", "hacer close_app con {'name': 'Spotify'}")
+    ]
+
+
+def test_una_accion_delicada_no_se_ejecuta_si_el_usuario_no_la_aprueba() -> None:
+    tool = FakeTool("close_app", PermissionLevel.SENSITIVE)
+
+    result = run(
+        PermissionGate([tool], FakeApprover(False)), ToolCall("close_app", {"name": "Spotify"})
+    )
+
+    assert tool.ran == []
+    assert "contestó que no" in result.lower()
+
+
+def test_no_se_pide_aprobacion_para_algo_que_ya_se_sabe_que_no_se_puede() -> None:
+    tool = FakeTool("close_app", PermissionLevel.SENSITIVE, cannot="Spotify no está abierto.")
+    approver = FakeApprover(True)
+
+    result = run(PermissionGate([tool], approver), ToolCall("close_app", {"name": "Spotify"}))
+
+    assert approver.asked == []
+    assert tool.ran == []
+    assert "Spotify no está abierto." in result
+
+
+def test_una_accion_normal_no_pide_aprobacion() -> None:
+    approver = FakeApprover(False)
+
+    result = run(PermissionGate([FakeTool("open_app")], approver), ToolCall("open_app"))
+
+    assert result == "open_app hecho"
+    assert approver.asked == []
+
+
+def test_la_aprobacion_del_usuario_no_alcanza_para_lo_critico() -> None:
+    # El nivel 3 pide la clave secreta, que todavía no existe: un «sí» no la reemplaza.
+    tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
+    approver = FakeApprover(True)
+
+    result = run(PermissionGate([tool], approver), ToolCall("edit_registry"))
+
+    assert tool.ran == []
+    assert approver.asked == []
+    assert "no se ejecutó" in result.lower()
+
+
+def test_ni_la_aprobacion_del_usuario_ejecuta_lo_prohibido() -> None:
+    tool = FakeTool("format_disk", PermissionLevel.FORBIDDEN)
+    approver = FakeApprover(True)
+
+    run(PermissionGate([tool], approver), ToolCall("format_disk"))
+
+    assert tool.ran == []
+    assert approver.asked == []
+
+
+def test_registra_si_el_usuario_aprobo_o_no(caplog: pytest.LogCaptureFixture) -> None:
+    tool = FakeTool("close_app", PermissionLevel.SENSITIVE)
+
+    with caplog.at_level(logging.INFO):
+        run(PermissionGate([tool], FakeApprover(True)), ToolCall("close_app"))
+        run(PermissionGate([tool], FakeApprover(False)), ToolCall("close_app"))
+
+    assert "aprobada por el usuario" in caplog.messages[0]
+    assert "rechazada" in caplog.messages[-1]
+    assert "el usuario no la aprobó" in caplog.messages[-1]
 
 
 def test_una_accion_normal_se_ejecuta_sin_preguntar() -> None:
@@ -41,7 +136,7 @@ def test_una_accion_normal_se_ejecuta_sin_preguntar() -> None:
 
 
 @pytest.mark.parametrize("level", [PermissionLevel.SENSITIVE, PermissionLevel.CRITICAL])
-def test_lo_que_pide_confirmacion_o_clave_todavia_no_se_ejecuta(level: PermissionLevel) -> None:
+def test_sin_forma_de_pedir_aprobacion_lo_delicado_no_se_ejecuta(level: PermissionLevel) -> None:
     tool = FakeTool("run_command", level)
 
     result = run(PermissionGate([tool]), ToolCall("run_command", {"command": "dir"}))

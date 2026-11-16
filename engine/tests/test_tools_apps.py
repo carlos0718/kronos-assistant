@@ -3,9 +3,9 @@ from collections.abc import Sequence
 
 import pytest
 
-from kronos_engine.core.platform import App
+from kronos_engine.core.platform import App, Window
 from kronos_engine.core.tools import PermissionLevel, ToolError
-from kronos_engine.tools.apps import OpenAppTool, find_app
+from kronos_engine.tools.apps import CloseAppTool, OpenAppTool, app_of, find_app, find_windows
 
 NOTEPAD = App("Bloc de notas", "Microsoft.WindowsNotepad!App")
 STICKY = App("Notas rápidas", "Microsoft.StickyNotes!App")
@@ -17,10 +17,27 @@ CODE = App("Visual Studio Code", "Microsoft.VisualStudioCode")
 APPS = [NOTEPAD, STICKY, CHROME, REMOTE, SPOTIFY, UNINSTALL, CODE]
 
 
+CHROME_DOCS = Window("Notas de la reunión - Google Docs - Google Chrome", 1)
+CHROME_MAIL = Window("Recibidos (3) - Gmail - Google Chrome", 2)
+NOTEPAD_WINDOW = Window("Sin título - Bloc de notas", 3)
+CALCULATOR = Window("Calculadora", 4)
+SPOTIFY_WINDOW = Window("Spotify Premium", 5)
+OVERLAY = Window("Kronos", 6)
+WINDOWS = [CHROME_DOCS, CHROME_MAIL, NOTEPAD_WINDOW, CALCULATOR, SPOTIFY_WINDOW, OVERLAY]
+
+
 class FakePlatform:
-    def __init__(self, apps: Sequence[App] = APPS) -> None:
+    def __init__(self, apps: Sequence[App] = APPS, windows: Sequence[Window] = WINDOWS) -> None:
         self._apps = apps
+        self._windows = windows
         self.opened: list[App] = []
+        self.closed: list[Window] = []
+
+    def windows(self) -> Sequence[Window]:
+        return self._windows
+
+    def close_window(self, window: Window) -> None:
+        self.closed.append(window)
 
     def apps(self) -> Sequence[App]:
         return self._apps
@@ -102,3 +119,72 @@ def test_sin_nombre_no_hay_nada_que_abrir() -> None:
 
 def test_es_una_accion_normal() -> None:
     assert OpenAppTool(FakePlatform()).level == PermissionLevel.NORMAL
+
+
+def test_el_nombre_de_la_aplicacion_es_el_final_del_titulo_de_la_ventana() -> None:
+    assert app_of("Notas de la reunión - Google Docs - Google Chrome") == "Google Chrome"
+    assert app_of("#general | Servidor - Discord") == "Discord"
+    assert app_of("Calculadora") == "Calculadora"
+
+
+def test_encuentra_todas_las_ventanas_de_la_aplicacion() -> None:
+    assert find_windows("chrome", WINDOWS) == [CHROME_DOCS, CHROME_MAIL]
+    assert find_windows("la calculadora", WINDOWS) == [CALCULATOR]
+    assert find_windows("spotify", WINDOWS) == [SPOTIFY_WINDOW]
+
+
+def test_no_confunde_el_nombre_de_un_documento_con_la_aplicacion() -> None:
+    # «Notas de la reunión» es una pestaña de Chrome, no el Bloc de notas.
+    assert find_windows("bloc de notas", WINDOWS) == [NOTEPAD_WINDOW]
+    assert find_windows("reunión", WINDOWS) == []
+
+
+def test_si_la_aplicacion_no_esta_abierta_no_encuentra_ventanas() -> None:
+    assert find_windows("Photoshop", WINDOWS) == []
+
+
+def test_las_ventanas_de_kronos_no_se_cierran() -> None:
+    assert find_windows("kronos", WINDOWS) == []
+
+
+def test_cerrar_una_aplicacion_pide_aprobacion() -> None:
+    assert CloseAppTool(FakePlatform()).level == PermissionLevel.SENSITIVE
+
+
+def test_la_pregunta_dice_que_se_va_a_cerrar_de_verdad() -> None:
+    tool = CloseAppTool(FakePlatform())
+
+    assert asyncio.run(tool.describe({"name": "chrome"})) == "cerrar Google Chrome (2 ventanas)"
+    assert asyncio.run(tool.describe({"name": "la calculadora"})) == "cerrar Calculadora"
+
+
+def test_no_se_pregunta_por_cerrar_algo_que_no_esta_abierto() -> None:
+    with pytest.raises(ToolError, match="Photoshop"):
+        asyncio.run(CloseAppTool(FakePlatform()).describe({"name": "Photoshop"}))
+
+
+def test_cierra_todas_las_ventanas_de_la_aplicacion() -> None:
+    platform = FakePlatform()
+
+    result = asyncio.run(CloseAppTool(platform).run({"name": "chrome"}))
+
+    assert platform.closed == [CHROME_DOCS, CHROME_MAIL]
+    assert "Google Chrome" in result
+
+
+def test_si_no_esta_abierta_no_cierra_nada_y_lo_dice() -> None:
+    platform = FakePlatform()
+
+    with pytest.raises(ToolError, match="Photoshop"):
+        asyncio.run(CloseAppTool(platform).run({"name": "Photoshop"}))
+
+    assert platform.closed == []
+
+
+def test_sin_nombre_no_hay_nada_que_cerrar() -> None:
+    with pytest.raises(ToolError, match="nombre"):
+        asyncio.run(CloseAppTool(FakePlatform()).run({"name": " "}))
+
+
+def test_abrir_una_aplicacion_se_describe_con_su_nombre() -> None:
+    assert asyncio.run(OpenAppTool(FakePlatform()).describe({"name": "Spotify"})) == "abrir Spotify"

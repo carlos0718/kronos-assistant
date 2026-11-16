@@ -53,6 +53,15 @@ class Tool(Protocol):
         """El nivel de permiso de fábrica."""
         ...
 
+    async def describe(self, arguments: Mapping[str, Any]) -> str:
+        """Qué haría con esos datos, en infinitivo: «cerrar Spotify».
+
+        Es lo que ve y oye el usuario cuando se le pide que apruebe la acción.
+        Si ya se sabe que no se puede hacer, lanza `ToolError`: no tiene
+        sentido pedir permiso para algo imposible.
+        """
+        ...
+
     async def run(self, arguments: Mapping[str, Any]) -> str:
         """Ejecuta la acción y devuelve el resultado, en texto para el modelo."""
         ...

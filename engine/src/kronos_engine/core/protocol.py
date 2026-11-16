@@ -21,6 +21,9 @@ class ServerMessage(StrEnum):
     STATE_CHANGED = "state_changed"
     TRANSCRIPT_FINAL = "transcript_final"
     ASSISTANT_DELTA = "assistant_delta"
+    # Kronos pide que el usuario apruebe una acción delicada; después avisa cómo terminó.
+    CONFIRMATION_REQUEST = "confirmation_request"
+    CONFIRMATION_RESOLVED = "confirmation_resolved"
     ERROR = "error"
 
 
@@ -29,3 +32,6 @@ class ClientMessage(StrEnum):
 
     ACTIVATE = "activate"
     CANCEL = "cancel"
+    # El usuario contestó una confirmación con un clic.
+    CONFIRM = "confirm"
+    DENY = "deny"

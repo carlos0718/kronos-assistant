@@ -1,4 +1,4 @@
-"""Acción: abrir una aplicación instalada."""
+"""Acciones: abrir una aplicación instalada y cerrar una que está abierta."""
 
 import asyncio
 import difflib
@@ -7,7 +7,7 @@ import unicodedata
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from kronos_engine.core.platform import App, Platform
+from kronos_engine.core.platform import App, Platform, Window
 from kronos_engine.core.tools import PermissionLevel, ToolError, ToolSpec
 
 # Qué tan parecido tiene que ser un nombre para tomarlo por un error de transcripción.
@@ -15,6 +15,13 @@ _TYPO = 0.8
 # Y para ofrecerlo como «¿quisiste decir…?».
 _SIMILAR = 0.65
 _MAX_SUGGESTIONS = 4
+# «Abrí la calculadora»: el artículo no es parte del nombre.
+_ARTICLES = {"el", "la", "los", "las", "un", "una", "the"}
+# En el título de una ventana, el nombre de la aplicación va al final:
+# «Documento - Aplicación». También se usan la raya y la barra.
+_TITLE_SEPARATOR = re.compile(r"\s+[-\u2013\u2014|]\s+")
+# Las ventanas del propio Kronos (el overlay, la configuración) no se cierran por voz.
+_OWN_TITLE = "kronos"
 
 
 def _normalize(text: str) -> str:
@@ -36,7 +43,7 @@ def _candidates(name: str, apps: Sequence[App]) -> list[App]:
     names = {app: _normalize(app.name) for app in apps}
     if exact := [app for app in apps if names[app] == wanted]:
         return exact[:1]
-    words = wanted.split()
+    words = [word for word in wanted.split() if word not in _ARTICLES] or wanted.split()
     # Primero con las palabras tal cual; si no, tolerando un error de transcripción.
     for same in (str.__eq__, _alike):
         partial = [
@@ -58,6 +65,27 @@ def find_app(name: str, apps: Sequence[App]) -> App | None:
     if len(found) > 1 and len(_normalize(found[0].name)) == len(_normalize(found[1].name)):
         return None
     return found[0]
+
+
+def app_of(title: str) -> str:
+    """El nombre de la aplicación, sacado del título de una de sus ventanas."""
+    return _TITLE_SEPARATOR.split(title.strip())[-1]
+
+
+def find_windows(name: str, windows: Sequence[Window]) -> list[Window]:
+    """Las ventanas de la aplicación pedida. Vacío si no está abierta o no se puede decidir."""
+    by_app: dict[str, list[Window]] = {}
+    for window in windows:
+        if not _normalize(window.title).startswith(_OWN_TITLE):
+            by_app.setdefault(app_of(window.title), []).append(window)
+    # Se busca por el nombre de la aplicación, no por todo el título: «notas»
+    # no cierra el navegador porque una pestaña se llame «Notas de la reunión».
+    app = find_app(name, [App(app_name, app_name) for app_name in by_app])
+    return by_app[app.name] if app else []
+
+
+def _name(arguments: Mapping[str, Any]) -> str:
+    return str(arguments.get("name") or "").strip()
 
 
 def _suggestions(name: str, apps: Sequence[App]) -> list[str]:
@@ -93,8 +121,11 @@ class OpenAppTool:
     def __init__(self, platform: Platform) -> None:
         self._platform = platform
 
+    async def describe(self, arguments: Mapping[str, Any]) -> str:
+        return f"abrir {_name(arguments)}"
+
     async def run(self, arguments: Mapping[str, Any]) -> str:
-        name = str(arguments.get("name") or "").strip()
+        name = _name(arguments)
         if not name:
             raise ToolError("Falta el nombre de la aplicación.")
         # El sistema puede tardar en contestar: no se frena al resto del motor.
@@ -111,3 +142,56 @@ class OpenAppTool:
         if similar := _suggestions(name, apps):
             message += f" Las más parecidas son: {', '.join(similar)}. Preguntale al usuario cuál."
         return message
+
+
+class CloseAppTool:
+    spec = ToolSpec(
+        "close_app",
+        "Cierra una aplicación que está abierta en la computadora del usuario. "
+        "Kronos le pide la confirmación al usuario por su cuenta antes de cerrarla: "
+        "llamá a la acción directamente, sin preguntarle antes.",
+        {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": (
+                        "Nombre de la aplicación, tal como lo dijo el usuario. "
+                        "Ejemplos: Chrome, Bloc de notas, Spotify."
+                    ),
+                }
+            },
+        },
+    )
+    # Cerrar puede hacer perder lo que no se guardó: pide aprobación.
+    level = PermissionLevel.SENSITIVE
+
+    def __init__(self, platform: Platform) -> None:
+        self._platform = platform
+
+    async def describe(self, arguments: Mapping[str, Any]) -> str:
+        # Se busca antes de preguntar: así la pregunta dice qué se va a cerrar
+        # de verdad, y no se pide permiso para cerrar algo que no está abierto.
+        return f"cerrar {_summary(await self._open_windows(arguments))}"
+
+    async def run(self, arguments: Mapping[str, Any]) -> str:
+        windows = await self._open_windows(arguments)
+        for window in windows:
+            await asyncio.to_thread(self._platform.close_window, window)
+        return f"Hecho: se cerró {_summary(windows)}."
+
+    async def _open_windows(self, arguments: Mapping[str, Any]) -> list[Window]:
+        name = _name(arguments)
+        if not name:
+            raise ToolError("Falta el nombre de la aplicación.")
+        windows = find_windows(name, await asyncio.to_thread(self._platform.windows))
+        if not windows:
+            raise ToolError(f"No hay ninguna ventana abierta de «{name}».")
+        return windows
+
+
+def _summary(windows: Sequence[Window]) -> str:
+    """«Google Chrome (2 ventanas)»."""
+    app = app_of(windows[0].title)
+    return app if len(windows) == 1 else f"{app} ({len(windows)} ventanas)"

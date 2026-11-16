@@ -35,6 +35,9 @@ class CurrentTimeTool:
     def __init__(self, now: Callable[[], datetime] = datetime.now) -> None:
         self._now = now
 
+    async def describe(self, arguments: Mapping[str, Any]) -> str:
+        return "decir la fecha y la hora"
+
     async def run(self, arguments: Mapping[str, Any]) -> str:
         now = self._now()
         day, month = _DAYS[now.weekday()], _MONTHS[now.month - 1]

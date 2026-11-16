@@ -5,6 +5,7 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from kronos_engine.core.approval import ApprovalDesk
 from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.demo import (
     DemoFollowUp,
@@ -70,7 +71,7 @@ def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt":
 
 def available_tools() -> list[Tool]:
     """Las acciones que Kronos puede ejecutar en este sistema."""
-    from kronos_engine.tools.apps import OpenAppTool
+    from kronos_engine.tools.apps import CloseAppTool, OpenAppTool
     from kronos_engine.tools.clock import CurrentTimeTool
 
     tools: list[Tool] = [CurrentTimeTool()]
@@ -79,7 +80,7 @@ def available_tools() -> list[Tool]:
 
         platform = WindowsPlatform()
         platform.preload()
-        tools.append(OpenAppTool(platform))
+        tools += [OpenAppTool(platform), CloseAppTool(platform)]
     return tools
 
 
@@ -124,8 +125,10 @@ def build() -> Parts:
     model.preload()
 
     profile = StoredProfile(store)
-    # El modelo propone las acciones; el control de permisos decide si se ejecutan.
-    tools = PermissionGate(available_tools())
+    # El modelo propone las acciones; el control de permisos decide si se
+    # ejecutan y, para las delicadas, le pregunta al usuario.
+    approvals = ApprovalDesk()
+    tools = PermissionGate(available_tools(), approvals)
 
     def current_instructions() -> str:
         # Se lee en cada respuesta: el usuario puede cambiar su perfil sin reiniciar.
@@ -136,6 +139,7 @@ def build() -> Parts:
         listener=VoiceListener(open_microphone, SileroVad(), stt),
         responder=AgentResponder(model, current_instructions, tools=tools),
         speaker=VoiceSpeaker(tts, play),
+        approvals=approvals,
     )
 
     # El reposo usa el mismo reconocedor que la conversación, con su propio

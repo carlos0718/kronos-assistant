@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { STATE_LABEL, useEngine } from "../engine/useEngine";
 import { Orb } from "../shared/Orb";
+import { Confirm } from "./Confirm";
 import "./Overlay.css";
 
 // Tiempo que el overlay queda visible después de volver a inactivo.
@@ -13,7 +14,7 @@ const HIDE_AFTER_ERROR_MS = 5000;
 const LEAVE_MS = 250;
 
 export function Overlay() {
-  const { state, transcript, reply, error, send, clear } = useEngine();
+  const { state, transcript, reply, error, confirmation, send, clear } = useEngine();
   const [leaving, setLeaving] = useState(false);
   const [summons, setSummons] = useState(0);
   // El aviso de invocación llega por un evento: se lee el estado más reciente sin volver a suscribirse.
@@ -66,14 +67,22 @@ export function Overlay() {
     };
   }, [state, summons, clear]);
 
-  const hasText = Boolean(transcript || reply || error);
+  const hasText = Boolean(transcript || reply || error || confirmation);
 
   return (
     <main className="overlay" data-leaving={leaving}>
       {hasText && (
         <section className="bubble" aria-live="polite">
           {transcript && <p className="bubble-user">“{transcript}”</p>}
-          {reply && <p className="bubble-reply">{reply}</p>}
+          {/* Mientras hay algo que aprobar, la pregunta ocupa el lugar de la respuesta. */}
+          {confirmation ? (
+            <Confirm
+              confirmation={confirmation}
+              onAnswer={(approved) => send(approved ? "confirm" : "deny", { id: confirmation.id })}
+            />
+          ) : (
+            reply && <p className="bubble-reply">{reply}</p>
+          )}
           {error && <p className="bubble-error">{error}</p>}
         </section>
       )}

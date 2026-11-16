@@ -15,6 +15,11 @@ type ServerPayloads = {
   state_changed: { state: EngineState };
   transcript_final: { text: string };
   assistant_delta: { text: string };
+  // Kronos pide que el usuario apruebe una acción delicada. `summary` dice qué
+  // va a hacer («cerrar Spotify»); `detail`, el comando exacto si lo hay.
+  confirmation_request: { id: string; summary: string; detail: string };
+  // La pregunta se cerró: por voz, con un clic o porque se cortó la conversación.
+  confirmation_resolved: { id: string; approved: boolean };
   error: { message: string };
 };
 
@@ -23,6 +28,8 @@ export const SERVER_MESSAGES = [
   "state_changed",
   "transcript_final",
   "assistant_delta",
+  "confirmation_request",
+  "confirmation_resolved",
   "error",
 ] as const satisfies readonly (keyof ServerPayloads)[];
 
@@ -31,5 +38,6 @@ export type ServerMessage = {
   [Type in keyof ServerPayloads]: { v: number; type: Type; payload: ServerPayloads[Type] };
 }[keyof ServerPayloads];
 
-export const CLIENT_MESSAGES = ["activate", "cancel"] as const;
+// `confirm` y `deny` contestan una confirmación; llevan el `id` de la pregunta.
+export const CLIENT_MESSAGES = ["activate", "cancel", "confirm", "deny"] as const;
 export type ClientMessage = (typeof CLIENT_MESSAGES)[number];

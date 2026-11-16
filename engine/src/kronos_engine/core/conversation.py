@@ -12,8 +12,11 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from kronos_engine.core.approval import ApprovalDesk
+from kronos_engine.core.confirming import Confirmations
 from kronos_engine.core.protocol import AssistantState, ServerMessage
 from kronos_engine.core.sentences import SentenceSplitter
+from kronos_engine.core.speaking import SpokenReply
 from kronos_engine.core.timing import Clock, Step, TurnTimer
 
 log = logging.getLogger(__name__)
@@ -58,18 +61,14 @@ class Pipeline:
     listener: Listener
     responder: Responder
     speaker: Speaker
+    # Por donde el control de permisos pide las confirmaciones; sin esto, no se piden.
+    approvals: ApprovalDesk | None = None
 
 
 SetState = Callable[[AssistantState], Awaitable[None]]
 Emit = Callable[[ServerMessage, dict[str, Any]], Awaitable[None]]
 # Segundos que se espera otra frase después de responder; cero es no esperar.
 FollowUp = Callable[[], float]
-
-
-async def _drain(sentences: asyncio.Queue[str | None]) -> AsyncIterator[str]:
-    """Entrega las frases de la cola hasta la marca de fin (`None`)."""
-    while (sentence := await sentences.get()) is not None:
-        yield sentence
 
 
 class Conversation:
@@ -94,6 +93,16 @@ class Conversation:
         self._state = AssistantState.IDLE
         self._emit = emit
         self._turn: asyncio.Task[None] | None = None
+        # Lo que Kronos está diciendo en el turno en curso.
+        self._voice: SpokenReply | None = None
+        self.confirmations = Confirmations(
+            lambda seconds: pipeline.listener.listen(None, seconds),
+            self._ask_aloud,
+            self._set_state,
+            emit,
+        )
+        if pipeline.approvals:
+            pipeline.approvals.connect(self.confirmations)
 
     async def activate(self, heard: str = "") -> None:
         """Empieza una conversación. Si había una en curso, la reemplaza.
@@ -179,29 +188,29 @@ class Conversation:
 
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.
-        sentences: asyncio.Queue[str | None] = asyncio.Queue()
         timer = self._timer
-        speaking = asyncio.create_task(
-            self._pipeline.speaker.speak(_drain(sentences), lambda: timer.mark(Step.FIRST_SOUND))
-        )
+        voice = SpokenReply(self._pipeline.speaker.speak, lambda: timer.mark(Step.FIRST_SOUND))
+        self._voice = voice
         splitter = SentenceSplitter()
-        started = False
         try:
             async for delta in self._pipeline.responder.respond(text):
-                if not started:
-                    started = True
-                    await self._set_state(AssistantState.SPEAKING)
+                # Después de una confirmación el estado volvió a "pensando".
+                await self._set_state(AssistantState.SPEAKING)
                 await self._emit(ServerMessage.ASSISTANT_DELTA, {"text": delta})
                 for sentence in splitter.feed(delta):
                     timer.mark(Step.FIRST_SENTENCE)
-                    sentences.put_nowait(sentence)
+                    voice.say(sentence)
             if rest := splitter.flush():
                 timer.mark(Step.FIRST_SENTENCE)
-                sentences.put_nowait(rest)
-            sentences.put_nowait(None)
-            await speaking
+                voice.say(rest)
+            await voice.finish()
         finally:
-            if not speaking.done():
-                speaking.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await speaking
+            self._voice = None
+            await voice.abort()
+
+    async def _ask_aloud(self, question: str) -> None:
+        """Dice una pregunta y espera a que termine de sonar, con lo que venía diciendo."""
+        voice = self._voice or SpokenReply(self._pipeline.speaker.speak)
+        await self._set_state(AssistantState.SPEAKING)
+        voice.say(question)
+        await voice.finish()

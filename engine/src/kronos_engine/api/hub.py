@@ -9,7 +9,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.core.conversation import Conversation, Pipeline
 from kronos_engine.core.follow_up import FollowUpControl
-from kronos_engine.core.protocol import AssistantState, ServerMessage
+from kronos_engine.core.protocol import AssistantState, ClientMessage, ServerMessage
 from kronos_engine.core.standby import Standby
 
 
@@ -44,6 +44,22 @@ class Hub:
 
     def leave(self, websocket: WebSocket) -> None:
         self._clients.discard(websocket)
+
+    async def receive(self, incoming: object) -> bool:
+        """Atiende un mensaje de la interfaz. Devuelve False si no lo reconoce."""
+        if not isinstance(incoming, dict):
+            return False
+        type_, payload = incoming.get("type"), incoming.get("payload")
+        if type_ == ClientMessage.ACTIVATE:
+            await self.conversation.activate()
+        elif type_ == ClientMessage.CANCEL:
+            await self.conversation.cancel()
+        elif type_ in (ClientMessage.CONFIRM, ClientMessage.DENY):
+            asked = payload.get("id") if isinstance(payload, dict) else None
+            self.conversation.confirmations.answer(str(asked), type_ == ClientMessage.CONFIRM)
+        else:
+            return False
+        return True
 
     async def broadcast(self, msg: dict[str, Any]) -> None:
         for client in list(self._clients):

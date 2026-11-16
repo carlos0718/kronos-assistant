@@ -45,6 +45,7 @@
 | El usuario la invoca mientras Kronos escucha, piensa o habla | Corta lo que esté haciendo |
 | Kronos vuelve a inactivo | Se oculta sola a los 2,5 segundos |
 | El motor no responde | Muestra el error y se oculta a los 5 segundos |
+| Kronos necesita que el usuario apruebe una acción delicada | La burbuja muestra la pregunta con los botones **No** y **Sí**, en el lugar de la respuesta. Se contesta con un clic o por voz |
 | Aviso proactivo: rutina o notificación (Fase 4) | Aparece la bolita chica con un latido y un sonido corto, y **espera permiso** antes de hablar |
 
 ## 3. La bolita
@@ -87,7 +88,7 @@ Los colores viven como variables en `apps/desktop/src/theme.css`.
 ## 5. Pendientes de diseño
 
 - Tamaño y comportamiento de la bolita en el aviso proactivo (Fase 4).
-- Botones de confirmación de acciones dentro del overlay (Fase 2).
+- En la confirmación de acciones, cómo se muestra el comando exacto cuando es largo (Fase 2, con la terminal).
 - Edición de la transcripción con el teclado: hoy el overlay no toma el foco; habrá que dárselo solo cuando el usuario quiera corregir (Fase 1).
 - Tema claro, si se decide ofrecerlo.
 - Atajo configurable desde la ventana de configuración.

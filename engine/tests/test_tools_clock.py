@@ -13,3 +13,7 @@ def test_dice_el_dia_la_fecha_y_la_hora() -> None:
 
 def test_es_una_accion_normal() -> None:
     assert CurrentTimeTool().level == PermissionLevel.NORMAL
+
+
+def test_se_describe_en_infinitivo() -> None:
+    assert asyncio.run(CurrentTimeTool().describe({})) == "decir la fecha y la hora"

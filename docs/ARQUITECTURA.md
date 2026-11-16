@@ -44,6 +44,7 @@ Los mensajes son JSON, tipados y con número de versión del protocolo.
 | Motor → interfaz | `transcript_partial` / `transcript_final` | Lo que el motor entendió de la voz del usuario |
 | Motor → interfaz | `assistant_delta` | Texto de la respuesta, a medida que se genera |
 | Motor → interfaz | `confirmation_request` | Pedir confirmación de una acción de nivel 2 |
+| Motor → interfaz | `confirmation_resolved` | Avisar que la confirmación se cerró: por voz, con un clic o porque se cortó la conversación |
 | Motor → interfaz | `secret_request` | Pedir la clave secreta para una acción de nivel 3 |
 | Motor → interfaz | `proactive_notice` | Avisar que el asistente quiere hablar (rutina o notificación) |
 | Motor → interfaz | `error` | Informar un fallo |
@@ -103,7 +104,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 | Texto a voz | `TTS` | Piper | Kokoro, otras voces o motores |
 | Palabra de activación | `WakeWord` | El reconocedor de voz: transcribe y busca «Kronos» | Un detector entrenado (openWakeWord, livekit-wakeword) |
 | Modelo de lenguaje | `LLMProvider` | Ollama, Anthropic, OpenAI | Gemini, OpenRouter, "Sign in with ChatGPT" |
-| Acciones | `Tool` | Hoy: decir la hora y abrir aplicaciones. Después: archivos, sistema, terminal | Nuevos plugins |
+| Acciones | `Tool` | Hoy: decir la hora, abrir aplicaciones y cerrarlas. Después: archivos, sistema, terminal | Nuevos plugins |
 | Calendario | `CalendarProvider` | Google Calendar | `.ics`/CalDAV, Outlook, Notion |
 | Sistema operativo | `Platform` | Windows | macOS, Linux |
 
@@ -150,7 +151,16 @@ Acción propuesta ──► Clasificar nivel ──┬─ Nivel 1 ──► Ejec
 - **Auditoría:** cada acción ejecutada o rechazada queda en un registro local.
 - **Privilegios:** el motor nunca corre como administrador.
 
-Hoy `permissions/` ejecuta el nivel 1 y rechaza el 4. Los niveles 2 y 3 también se rechazan, hasta que existan la confirmación y la clave secreta. El registro de auditoría todavía son líneas `motor:` en la terminal, con el nombre de la acción y sin sus datos.
+Hoy `permissions/` ejecuta el nivel 1, pide confirmación para el 2 y rechaza el 4. El nivel 3 también se rechaza, hasta que exista la clave secreta. El registro de auditoría todavía son líneas `motor:` en la terminal, con el nombre de la acción y sin sus datos.
+
+**Cómo se confirma una acción de nivel 2:**
+
+1. La acción dice qué va a hacer («cerrar Google Chrome (2 ventanas)»). Si ya sabe que no puede, no se pregunta nada.
+2. El motor envía `confirmation_request` y Kronos hace la pregunta en voz alta. El overlay la muestra con dos botones.
+3. Cuando termina de preguntar, se abre el micrófono. Vale lo primero que llegue: un clic (`confirm` o `deny`) o la voz.
+4. Por voz solo aprueba un sí claro («sí», «dale», «confirmo»). Una negación en la frase rechaza aunque también haya un sí. «Yeah» no vale: el reconocedor a veces transcribe así un «no» corto.
+5. Si no queda claro, vuelve a escuchar, hasta tres veces. Si nadie contesta en 15 segundos, o nunca queda claro, es un no.
+6. El motor envía `confirmation_resolved` y el modelo recibe el resultado.
 
 ## 7. Datos en disco
 
