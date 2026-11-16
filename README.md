@@ -4,7 +4,7 @@
 >
 > Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Latencia y consumo medidos: [docs/MEDICIONES.md](docs/MEDICIONES.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **Fase 1 en curso (v0.8.0).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. La latencia y el consumo ya se miden (`pnpm engine:measure`); falta decidir el hardware mínimo con esos números.
+> Estado: **Fase 1 en curso (v0.9.0).** Kronos conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. La latencia y el consumo ya se miden (`pnpm engine:measure`); falta decidir el hardware mínimo con esos números. La transcripción pasó de whisper a Parakeet, unas quince veces más rápido; whisper sigue disponible con `KRONOS_STT_MODEL=small`.
 
 ## La idea
 
@@ -71,7 +71,7 @@ El usuario puede cambiar de proveedor o de modelo cuando quiera. Formas de conex
 ### Voz
 - **MVP: pipeline en cascada**
   - Detección de voz (VAD): Silero.
-  - Voz a texto (STT): faster-whisper / whisper.cpp.
+  - Voz a texto (STT): Parakeet v3 (ONNX); faster-whisper como alternativa.
   - LLM: el proveedor elegido por el usuario.
   - Texto a voz (TTS): Piper / Kokoro.
   - Todas las etapas trabajan en streaming para reducir la latencia.
@@ -126,7 +126,7 @@ Cada calendario es un **plugin** con la misma interfaz (leer eventos, crear, mod
 
 ### Activación
 - **Atajo de teclado** global.
-- **Palabra de activación «Kronos»** (opcional, desde la configuración). Por ahora el motor transcribe con whisper lo que se dice cerca del micrófono y busca el nombre, sin entrenar ningún modelo; todo ocurre en el equipo y no se guarda nada. Más adelante se puede cambiar por un detector entrenado para esa sola palabra (openWakeWord o similar), que gasta menos.
+- **Palabra de activación «Kronos»** (opcional, desde la configuración). Por ahora el motor transcribe lo que se dice cerca del micrófono y busca el nombre, sin entrenar ningún modelo; todo ocurre en el equipo y no se guarda nada. Más adelante se puede cambiar por un detector entrenado para esa sola palabra (openWakeWord o similar), que gasta menos.
 - **Activación automática** (configurable) para leer notificaciones o recordatorios en voz alta.
 
 ### Autonomía
@@ -324,7 +324,7 @@ El detalle está en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 Construcción, según las fases del documento de arquitectura:
 
 - [x] **Fase 0:** esqueleto del monorepo y prueba de empaquetado (motor "hola mundo" con PyInstaller como recurso de Tauri, con instalador para Windows). Comprobado el 12 nov. 2026: el instalador pesa 14 MB y la app instalada arranca el motor y se conecta con él.
-- [ ] **Fase 1:** bucle de voz con overlay (atajo → escuchar → modelo → hablar). Medir latencia y consumo para definir el hardware mínimo. Primera medición el 14 nov. 2026 ([docs/MEDICIONES.md](docs/MEDICIONES.md)): la transcripción es casi toda la demora.
+- [ ] **Fase 1:** bucle de voz con overlay (atajo → escuchar → modelo → hablar). Medir latencia y consumo para definir el hardware mínimo. Primera medición el 14 nov. 2026 ([docs/MEDICIONES.md](docs/MEDICIONES.md)): la transcripción con whisper es casi toda la demora; con Parakeet (15 nov.) baja de 2,24 s a 0,15 s.
 - [ ] **Fase 2:** herramientas y niveles de permiso, con confirmación y clave secreta.
 - [ ] **Fase 3:** memoria persistente cifrada.
 - [ ] **Fase 4:** rutinas, "avisar y esperar" y Google Calendar.

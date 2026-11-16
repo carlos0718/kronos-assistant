@@ -32,6 +32,10 @@ def main() -> None:
             "--collect-submodules", "websockets",
             # El modelo de detección de voz (Silero) viaja dentro de faster-whisper.
             "--collect-data", "faster_whisper",
+            # onnx-asr trae dentro del paquete los modelos que preparan el audio,
+            # y al importarse lee su versión de los metadatos del paquete.
+            "--collect-data", "onnx_asr",
+            "--copy-metadata", "onnx-asr",
             # Piper trae los datos de pronunciación (espeak-ng) dentro del paquete.
             "--collect-data", "piper",
         ]

@@ -33,7 +33,6 @@ from kronos_engine.voice import FRAME_SAMPLES, SAMPLE_RATE
 from kronos_engine.voice.catalog import DEFAULT_VOICES
 from kronos_engine.voice.endpointing import EndpointConfig
 from kronos_engine.voice.speaker import Speech
-from kronos_engine.voice.stt import WhisperStt
 from kronos_engine.voice.tts import PiperTts
 from kronos_engine.voice.vad import SileroVad
 
@@ -166,7 +165,7 @@ async def run(rounds: int) -> None:
     tts = PiperTts(voice)
     with measured() as tts_load:
         question = to_16k(await tts.synthesize(QUESTIONS[language]))
-    stt = WhisperStt(stt_model, language)
+    stt = pipeline.stt_for(stt_model, language)
     with measured() as stt_load:
         text = await stt.transcribe(question)
     provider = OllamaProvider(llm_model, base_url=url)
@@ -206,7 +205,8 @@ async def run(rounds: int) -> None:
 
     print(f"Equipo: {cpu_name()} · {cores} núcleos ({threads} hilos) · {num(ram, 0)} GB de memoria")
     print(f"Sistema: {platform.system()} {platform.release()}")
-    print(f"Piezas: whisper {stt_model} · {llm_model} en Ollama · voz {voice}")
+    stt_name = stt_model if stt_model == pipeline.PARAKEET else f"whisper {stt_model}"
+    print(f"Piezas: {stt_name} · {llm_model} en Ollama · voz {voice}")
     print(f"Mediana de {rounds} rondas.\n")
     print("| Paso | Tiempo | Procesador del motor |")
     print("|---|---|---|")
@@ -238,7 +238,7 @@ async def run(rounds: int) -> None:
     for row in usage:
         print(row)
     print(
-        f"| Primera vez (carga de cada pieza) | whisper {num(stt_load.wall, 1)} s · "
+        f"| Primera vez (carga de cada pieza) | transcripción {num(stt_load.wall, 1)} s · "
         f"voz {num(tts_load.wall, 1)} s · modelo {num(llm_load.wall, 1)} s |"
     )
 

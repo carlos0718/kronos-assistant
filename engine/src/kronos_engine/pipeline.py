@@ -2,6 +2,7 @@
 
 import os
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.demo import (
@@ -16,14 +17,20 @@ from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.voices import VoiceControl
 
+if TYPE_CHECKING:
+    from kronos_engine.voice.parakeet import ParakeetStt
+    from kronos_engine.voice.stt import WhisperStt
+
 # KRONOS_PIPELINE=demo usa las piezas simuladas, sin micrófono ni modelos.
 PIPELINE_ENV = "KRONOS_PIPELINE"
 # Idioma en que se transcribe ("es", "en"). PROVISORIO: irá en la configuración.
 LANGUAGE_ENV = "KRONOS_LANGUAGE"
-# Modelo de whisper que transcribe ("small", "medium", "large-v3-turbo"…). Los
-# más grandes entienden mejor y tardan más. PROVISORIO: irá en la configuración.
+# Modelo que transcribe: "parakeet", o un tamaño de whisper ("base", "small",
+# "medium"…) para volver al reconocedor anterior. Parakeet es mucho más rápido;
+# los tiempos están en docs/MEDICIONES.md. PROVISORIO: irá en la configuración.
 STT_MODEL_ENV = "KRONOS_STT_MODEL"
-DEFAULT_STT_MODEL = "small"
+PARAKEET = "parakeet"
+DEFAULT_STT_MODEL = PARAKEET
 
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
 MODEL_ENV = "KRONOS_LLM_MODEL"
@@ -47,6 +54,18 @@ class Parts:
     follow_up: FollowUpControl
 
 
+def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt":
+    """Elige el reconocedor de voz por el nombre de su modelo."""
+    # Se importan acá para que el modo demo no dependa de las librerías de voz.
+    from kronos_engine.voice.parakeet import ParakeetStt
+    from kronos_engine.voice.stt import WhisperStt
+
+    if name == PARAKEET:
+        # Parakeet reconoce solo el idioma: no recibe el elegido.
+        return ParakeetStt()
+    return WhisperStt(name, language=language)
+
+
 def build() -> Parts:
     if os.environ.get(PIPELINE_ENV) == "demo":
         return Parts(
@@ -65,7 +84,6 @@ def build() -> Parts:
     from kronos_engine.voice.microphone import open_microphone
     from kronos_engine.voice.playback import play
     from kronos_engine.voice.speaker import VoiceSpeaker
-    from kronos_engine.voice.stt import WhisperStt
     from kronos_engine.voice.tts import PiperTts
     from kronos_engine.voice.vad import SileroVad
     from kronos_engine.voice.voices import PiperVoices
@@ -77,7 +95,7 @@ def build() -> Parts:
     default_voice = DEFAULT_VOICES.get(language, DEFAULT_VOICES["es"])
 
     # Los tres modelos se cargan mientras el usuario todavía no habló.
-    stt = WhisperStt(os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL), language=language)
+    stt = stt_for(os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL), language)
     stt.preload()
     tts = PiperTts(settings.voice or os.environ.get(VOICE_ENV) or default_voice)
     tts.preload()

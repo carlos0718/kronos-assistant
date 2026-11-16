@@ -1,6 +1,6 @@
 """Palabra de activación sin modelo propio: transcribe lo que oye y busca "Kronos".
 
-Usa el detector de voz y el whisper que ya están cargados, así no hay que
+Usa el detector de voz y el reconocedor que ya están cargados, así no hay que
 entrenar ni descargar nada. A cambio, transcribe cada frase que se dice cerca
 del micrófono: gasta más que un detector entrenado para una sola palabra.
 """
@@ -14,7 +14,7 @@ from kronos_engine.voice.listener import OpenMicrophone, Stt, Vad, capture
 
 log = logging.getLogger(__name__)
 
-# Cómo escribe whisper el nombre, sin acentos y en minúsculas.
+# Cómo escribe el reconocedor el nombre, sin acentos y en minúsculas.
 _SPELLINGS = frozenset({"kronos", "cronos", "chronos", "khronos", "kronus", "cronus"})
 # Lo que puede quedar pegado al nombre: "Kronos, …", "…, Kronos".
 _SEPARATORS = " ,.;:!?-—…"
