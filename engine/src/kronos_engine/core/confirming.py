@@ -19,6 +19,9 @@ log = logging.getLogger(__name__)
 ANSWER_WAIT_SECONDS = 15.0
 # Cuántas veces se vuelve a escuchar si lo que se oyó no fue un sí ni un no.
 ANSWER_ATTEMPTS = 3
+# El reconocedor entiende mal las respuestas de una sola palabra: por eso se
+# pide una más larga para aprobar. Para negar alcanza con cualquier cosa.
+HOW_TO_ANSWER = "Respondé «sí, confirmo» o «no»."
 
 Listen = Callable[[float], Awaitable[str | None]]
 AskAloud = Callable[[str], Awaitable[None]]
@@ -54,7 +57,7 @@ class Confirmations:
             shown = {"id": request_id, "summary": request.summary, "detail": request.detail}
             await self._emit(ServerMessage.CONFIRMATION_REQUEST, shown)
             # El micrófono se abre cuando Kronos terminó de preguntar: si no, se oiría a sí mismo.
-            await self._ask_aloud(f"¿Confirmás {request.summary}?")
+            await self._ask_aloud(f"¿Confirmás {request.summary}? {HOW_TO_ANSWER}")
             approved = await self._first_answer(clicked)
         finally:
             self._pending = None
@@ -70,14 +73,24 @@ class Confirmations:
         try:
             await asyncio.wait({hearing, clicked}, return_when=asyncio.FIRST_COMPLETED)
             # Si llegaron los dos a la vez, vale el clic: no depende de una transcripción.
-            return clicked.result() if clicked.done() else hearing.result()
+            by_click = clicked.done()
+            approved = clicked.result() if by_click else hearing.result()
+            log.info(
+                "Confirmación %s %s.",
+                "aprobada" if approved else "rechazada",
+                "con un clic" if by_click else "por voz",
+            )
+            return approved
         finally:
             hearing.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await hearing
 
     async def _hear_answer(self) -> bool:
-        for _ in range(ANSWER_ATTEMPTS):
+        for attempt in range(ANSWER_ATTEMPTS):
+            if attempt:
+                # Sin este aviso, el usuario no sabe si Kronos lo oyó.
+                await self._ask_aloud(f"No te entendí. {HOW_TO_ANSWER}")
             await self._set_state(AssistantState.LISTENING)
             text = await self._listen(ANSWER_WAIT_SECONDS)
             if text is None:
@@ -86,6 +99,8 @@ class Confirmations:
             answer = parse_answer(text)
             if answer is not None:
                 return answer
-            log.info("No quedó claro si fue un sí o un no; sigue escuchando.")
+            # Queda cuánto se oyó, no qué: puede ser privado. El texto, solo al depurar.
+            log.info("No quedó claro si fue un sí o un no (%d caracteres).", len(text))
+            log.debug("Respuesta que no quedó clara: %r", text)
         log.info("No se entendió la respuesta a la confirmación: es un no.")
         return False

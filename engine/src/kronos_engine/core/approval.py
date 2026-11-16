@@ -46,6 +46,8 @@ class ApprovalDesk:
 # El reconocedor de voz a veces transcribe un «no» corto como «yeah» o «north»
 # (ver docs/MEDICIONES.md). Por eso la lista de síes es corta y «yeah» no está.
 _YES = {"si", "dale", "confirmo", "confirmado", "hacelo", "adelante", "ok", "okay", "yes"}
+# Así transcribió un «sí» suelto en las pruebas con micrófono. Ningún «no» salió así.
+_YES |= {"c", "see"}
 _NO = {"no", "cancela", "cancelar", "cancelalo", "para", "nunca", "tampoco", "nop"}
 
 

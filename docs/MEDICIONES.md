@@ -106,6 +106,17 @@ Desde la v0.10.0 el modelo puede pedir una acción (decir la hora, abrir una apl
 - **Un turno con acción tarda cerca de un segundo y medio más** en empezar a contestar. Casi todo es la segunda pregunta al modelo; ejecutar la acción no se nota.
 - **Listar las aplicaciones de Windows tarda 1,1 s.** Por eso la lista se arma al arrancar y se guarda cinco minutos.
 
+## Prueba con micrófono del 16 nov. 2026: acciones y confirmación
+
+Siete minutos y 24 turnos con la v0.11.0, en el mismo equipo. Lo que se vio:
+
+- **«Bloc de notas» se transcribió «blog de notas»** y no se encontró la aplicación. Desde la v0.11.1 se tolera una letra cambiada en una palabra de cuatro.
+- **Un «sí» suelto se transcribió «C».** En tres de seis confirmaciones hubo al menos una respuesta que no se entendió; «sí, confirmo» se entendió siempre. Desde la v0.11.1 la pregunta pide esa respuesta, «c» vale como sí y Kronos avisa cuando no entendió.
+- **Kronos cortó al usuario en una pausa.** El silencio que da por terminada la frase pasó de 0,8 s a 1,2 s; se cambia con `KRONOS_END_SILENCE_MS`. Suma 0,4 s a cada turno.
+- **Transcribir siguió rápido** (0,09 a 0,32 s), pero el modelo tardó entre 1 y 10 s en la primera frase, sin que se buscara la causa.
+
+Para ver qué texto se oyó en una prueba así, el motor se arranca con `KRONOS_DEBUG=1`. De fábrica solo se anota cuántos caracteres.
+
 ## Qué falta medir
 
 - Un turno con acción de punta a punta, con voz real.

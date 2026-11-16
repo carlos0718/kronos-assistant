@@ -20,7 +20,7 @@ export function Confirm({ confirmation, onAnswer }: Props) {
           Sí
         </button>
       </div>
-      <p className="confirm-hint">También podés decir «sí» o «no».</p>
+      <p className="confirm-hint">También podés decir «sí, confirmo» o «no».</p>
     </fieldset>
   );
 }

@@ -21,6 +21,9 @@ from kronos_engine.core.timing import Clock, Step, TurnTimer
 
 log = logging.getLogger(__name__)
 
+# Letras o números que tiene que tener lo que se oyó para tomarlo por un pedido.
+MIN_REQUEST_LETTERS = 2
+
 
 class Listener(Protocol):
     async def listen(
@@ -184,7 +187,10 @@ class Conversation:
             waited = "" if wait_seconds is None else f" en {wait_seconds:g} s"
             log.info("Nadie habló%s; termina la conversación.", waited)
             return None
-        return text.strip()
+        text = text.strip()
+        log.debug("Se oyó: %r", text)
+        # Una letra suelta es un ruido, o una respuesta que llegó tarde: no es un pedido.
+        return text if sum(char.isalnum() for char in text) >= MIN_REQUEST_LETTERS else ""
 
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.
@@ -211,6 +217,8 @@ class Conversation:
     async def _ask_aloud(self, question: str) -> None:
         """Dice una pregunta y espera a que termine de sonar, con lo que venía diciendo."""
         voice = self._voice or SpokenReply(self._pipeline.speaker.speak)
+        # Para los tiempos del turno, la pregunta es lo primero que Kronos dice.
+        self._timer.mark(Step.FIRST_SENTENCE)
         await self._set_state(AssistantState.SPEAKING)
         voice.say(question)
         await voice.finish()

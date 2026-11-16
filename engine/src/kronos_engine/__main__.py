@@ -27,6 +27,9 @@ from kronos_engine.pipeline import build
 HOST = "127.0.0.1"
 READY_PREFIX = "KRONOS_READY"
 TOKEN_ENV = "KRONOS_TOKEN"
+# KRONOS_DEBUG=1 anota también lo que se oyó, para diagnosticar al reconocedor
+# de voz. Es texto privado: por eso de fábrica no se anota.
+DEBUG_ENV = "KRONOS_DEBUG"
 PARENT_WATCH_ENV = "KRONOS_PARENT_WATCH"
 
 
@@ -60,6 +63,8 @@ def main() -> None:
     )
     # httpx anota cada pedido a Ollama: es ruido.
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    if os.environ.get(DEBUG_ENV) == "1":
+        logging.getLogger("kronos_engine").setLevel(logging.DEBUG)
     token = os.environ.get(TOKEN_ENV)
     ready: dict[str, object] = {"protocol": PROTOCOL_VERSION, "version": __version__}
     if not token:

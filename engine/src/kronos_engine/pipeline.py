@@ -35,6 +35,13 @@ STT_MODEL_ENV = "KRONOS_STT_MODEL"
 PARAKEET = "parakeet"
 DEFAULT_STT_MODEL = PARAKEET
 
+# Milisegundos de silencio que dan por terminada la frase del usuario. Con
+# menos, Kronos contesta más rápido pero corta a quien hace una pausa para
+# pensar. PROVISORIO: irá en la configuración.
+END_SILENCE_ENV = "KRONOS_END_SILENCE_MS"
+DEFAULT_END_SILENCE_MS = 1200.0
+_END_SILENCE_RANGE = (300.0, 5000.0)
+
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
 MODEL_ENV = "KRONOS_LLM_MODEL"
 DEFAULT_MODEL = "qwen3:8b"
@@ -69,6 +76,16 @@ def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt":
     return WhisperStt(name, language=language)
 
 
+def end_silence_ms(value: str | None) -> float:
+    """La pausa elegida, o la de fábrica si no se eligió o no es válida."""
+    try:
+        chosen = float(value or "")
+    except ValueError:
+        return DEFAULT_END_SILENCE_MS
+    low, high = _END_SILENCE_RANGE
+    return chosen if low <= chosen <= high else DEFAULT_END_SILENCE_MS
+
+
 def available_tools() -> list[Tool]:
     """Las acciones que Kronos puede ejecutar en este sistema."""
     from kronos_engine.tools.apps import CloseAppTool, OpenAppTool
@@ -99,6 +116,7 @@ def build() -> Parts:
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
     from kronos_engine.permissions.gate import PermissionGate
     from kronos_engine.voice.catalog import DEFAULT_VOICES
+    from kronos_engine.voice.endpointing import EndpointConfig
     from kronos_engine.voice.listener import VoiceListener
     from kronos_engine.voice.microphone import open_microphone
     from kronos_engine.voice.playback import play
@@ -136,7 +154,12 @@ def build() -> Parts:
         return instructions_for(saved.name, saved.about)
 
     pipeline = Pipeline(
-        listener=VoiceListener(open_microphone, SileroVad(), stt),
+        listener=VoiceListener(
+            open_microphone,
+            SileroVad(),
+            stt,
+            EndpointConfig(end_silence_ms=end_silence_ms(os.environ.get(END_SILENCE_ENV))),
+        ),
         responder=AgentResponder(model, current_instructions, tools=tools),
         speaker=VoiceSpeaker(tts, play),
         approvals=approvals,

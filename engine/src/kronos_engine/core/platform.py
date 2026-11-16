@@ -37,6 +37,10 @@ class Platform(Protocol):
         """Las ventanas abiertas que el usuario tiene a la vista."""
         ...
 
+    def focus_window(self, window: Window) -> None:
+        """Trae la ventana al frente."""
+        ...
+
     def close_window(self, window: Window) -> None:
         """Le pide a la ventana que se cierre, como al tocar la X.
 

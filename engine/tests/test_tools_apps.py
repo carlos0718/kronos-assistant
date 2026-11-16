@@ -32,6 +32,10 @@ class FakePlatform:
         self._windows = windows
         self.opened: list[App] = []
         self.closed: list[Window] = []
+        self.focused: list[Window] = []
+
+    def focus_window(self, window: Window) -> None:
+        self.focused.append(window)
 
     def windows(self) -> Sequence[Window]:
         return self._windows
@@ -69,6 +73,8 @@ def test_tolera_un_error_chico_de_transcripcion() -> None:
     assert find_app("Spotifi", APPS) == SPOTIFY
     assert find_app("crome", APPS) == CHROME
     assert find_app("bloc de nota", APPS) == NOTEPAD
+    # Así transcribió el reconocedor «bloc de notas» en una prueba con micrófono.
+    assert find_app("blog de notas", APPS) == NOTEPAD
 
 
 def test_una_palabra_parecida_no_alcanza_si_las_demas_no_estan() -> None:
@@ -85,12 +91,31 @@ def test_si_nada_se_parece_no_encuentra_nada() -> None:
 
 
 def test_abre_la_aplicacion_que_encontro() -> None:
-    platform = FakePlatform()
+    platform = FakePlatform(windows=[])
 
     result = asyncio.run(OpenAppTool(platform).run({"name": "bloc de notas"}))
 
     assert platform.opened == [NOTEPAD]
     assert "Bloc de notas" in result
+
+
+def test_si_ya_esta_abierta_la_trae_al_frente_en_lugar_de_abrir_otra() -> None:
+    platform = FakePlatform()
+
+    result = asyncio.run(OpenAppTool(platform).run({"name": "blog de notas"}))
+
+    assert platform.opened == []
+    assert platform.focused == [NOTEPAD_WINDOW]
+    assert "ya estaba abierta" in result
+
+
+def test_abre_otra_ventana_solo_si_el_usuario_la_pide() -> None:
+    platform = FakePlatform()
+
+    asyncio.run(OpenAppTool(platform).run({"name": "bloc de notas", "new_window": True}))
+
+    assert platform.opened == [NOTEPAD]
+    assert platform.focused == []
 
 
 def test_si_no_la_encuentra_no_abre_nada_y_dice_cuales_se_parecen() -> None:
