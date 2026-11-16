@@ -8,6 +8,7 @@ from typing import Any
 from kronos_engine.core.platform import Window
 
 _WM_CLOSE = 0x0010
+_SW_RESTORE = 9
 _GW_OWNER = 4
 _GWL_EXSTYLE = -20
 _WS_EX_TOOLWINDOW = 0x80
@@ -66,3 +67,27 @@ def close_window(window: Window) -> None:
     post = ctypes.windll.user32.PostMessageW
     post.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
     post(window.id, _WM_CLOSE, 0, 0)
+
+
+def focus_window(window: Window) -> None:
+    """Trae la ventana al frente; si estaba minimizada, la restaura."""
+    if sys.platform != "win32":
+        return
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    hwnd = wintypes.HWND(window.id)
+    if user32.IsIconic(hwnd):
+        user32.ShowWindow(hwnd, _SW_RESTORE)
+    # Windows solo deja traer una ventana al frente al programa que el usuario
+    # está usando. Unirse por un momento a ese programa levanta la traba; si no
+    # alcanza, Windows hace parpadear la ventana en la barra de tareas.
+    current = ctypes.windll.kernel32.GetCurrentThreadId()
+    active = user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), None)
+    joined = active and active != current and user32.AttachThreadInput(current, active, True)
+    try:
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
+    finally:
+        if joined:
+            user32.AttachThreadInput(current, active, False)

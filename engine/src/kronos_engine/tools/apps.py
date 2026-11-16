@@ -10,8 +10,10 @@ from typing import Any
 from kronos_engine.core.platform import App, Platform, Window
 from kronos_engine.core.tools import PermissionLevel, ToolError, ToolSpec
 
-# Qué tan parecido tiene que ser un nombre para tomarlo por un error de transcripción.
-_TYPO = 0.8
+# Qué tan parecida tiene que ser una palabra para tomarla por un error de
+# transcripción. Con 0,75 entra una letra cambiada en una palabra de cuatro:
+# «blog de notas» es «Bloc de notas».
+_TYPO = 0.75
 # Y para ofrecerlo como «¿quisiste decir…?».
 _SIMILAR = 0.65
 _MAX_SUGGESTIONS = 4
@@ -112,7 +114,14 @@ class OpenAppTool:
                         "Nombre de la aplicación, tal como lo dijo el usuario. "
                         "Ejemplos: Bloc de notas, Chrome, Spotify."
                     ),
-                }
+                },
+                "new_window": {
+                    "type": "boolean",
+                    "description": (
+                        "true solo si el usuario pide expresamente otra ventana u otra "
+                        "instancia de una aplicación que ya está abierta."
+                    ),
+                },
             },
         },
     )
@@ -134,6 +143,12 @@ class OpenAppTool:
         app = find_app(name, apps)
         if app is None:
             raise ToolError(self._not_found(name, apps))
+        if not arguments.get("new_window"):
+            # Si ya está abierta no se abre otra: se la trae al frente.
+            windows = find_windows(app.name, await asyncio.to_thread(self._platform.windows))
+            if windows:
+                await asyncio.to_thread(self._platform.focus_window, windows[0])
+                return f"{app.name} ya estaba abierta: quedó al frente y no se abrió otra ventana."
         await asyncio.to_thread(self._platform.open_app, app)
         return f"Se abrió {app.name}."
 

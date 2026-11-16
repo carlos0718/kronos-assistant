@@ -156,10 +156,10 @@ Hoy `permissions/` ejecuta el nivel 1, pide confirmación para el 2 y rechaza el
 **Cómo se confirma una acción de nivel 2:**
 
 1. La acción dice qué va a hacer («cerrar Google Chrome (2 ventanas)»). Si ya sabe que no puede, no se pregunta nada.
-2. El motor envía `confirmation_request` y Kronos hace la pregunta en voz alta. El overlay la muestra con dos botones.
+2. El motor envía `confirmation_request` y Kronos hace la pregunta en voz alta, con la forma de contestar: «Respondé "sí, confirmo" o "no"». El overlay la muestra con dos botones.
 3. Cuando termina de preguntar, se abre el micrófono. Vale lo primero que llegue: un clic (`confirm` o `deny`) o la voz.
-4. Por voz solo aprueba un sí claro («sí», «dale», «confirmo»). Una negación en la frase rechaza aunque también haya un sí. «Yeah» no vale: el reconocedor a veces transcribe así un «no» corto.
-5. Si no queda claro, vuelve a escuchar, hasta tres veces. Si nadie contesta en 15 segundos, o nunca queda claro, es un no.
+4. Por voz solo aprueba un sí claro («sí», «dale», «confirmo»). Una negación en la frase rechaza aunque también haya un sí. «Yeah» no vale: el reconocedor a veces transcribe así un «no» corto. Sí valen «c» y «see», que es como transcribió un «sí» suelto en las pruebas con micrófono. Se pide «sí, confirmo» porque las respuestas de una sola palabra son las que peor entiende.
+5. Si no queda claro, lo dice («No te entendí…») y vuelve a escuchar, hasta tres veces. Si nadie contesta en 15 segundos, o nunca queda claro, es un no.
 6. El motor envía `confirmation_resolved` y el modelo recibe el resultado.
 
 ## 7. Datos en disco

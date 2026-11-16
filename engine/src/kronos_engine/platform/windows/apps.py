@@ -89,3 +89,6 @@ class WindowsPlatform:
 
     def close_window(self, window: Window) -> None:
         open_windows.close_window(window)
+
+    def focus_window(self, window: Window) -> None:
+        open_windows.focus_window(window)

@@ -348,3 +348,15 @@ def test_activate_durante_un_turno_lo_reemplaza_por_uno_nuevo() -> None:
     assert [e for e in events if e[0] == "transcript_final"] == [
         ("transcript_final", "¿Qué hora es?")
     ]
+
+
+def test_una_sola_letra_no_es_un_pedido() -> None:
+    # Un ruido o un «sí» que llegó tarde se transcriben como una letra suelta.
+    async def scenario() -> FakeResponder:
+        responder = FakeResponder(["Hola."])
+        conversation, _ = build(FakeListener("C", "?"), responder)
+        await conversation.activate()
+        await conversation.wait()
+        return responder
+
+    assert asyncio.run(scenario()).asked == []

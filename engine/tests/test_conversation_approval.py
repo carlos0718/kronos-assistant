@@ -11,7 +11,8 @@ from kronos_engine.core.approval import ApprovalDesk, ApprovalRequest
 from kronos_engine.core.conversation import Conversation, Pipeline
 
 REQUEST = ApprovalRequest("close_app", "cerrar Spotify")
-QUESTION = "¿Confirmás cerrar Spotify?"
+QUESTION = "¿Confirmás cerrar Spotify? Respondé «sí, confirmo» o «no»."
+RETRY = "No te entendí. Respondé «sí, confirmo» o «no»."
 
 
 class FakeSpeaker:
@@ -22,6 +23,8 @@ class FakeSpeaker:
         self, sentences: AsyncIterator[str], on_start: Callable[[], None] | None = None
     ) -> None:
         async for sentence in sentences:
+            if on_start:
+                on_start()
             await asyncio.sleep(0)  # Decir una frase lleva un momento.
             self.spoken.append(sentence)
 
@@ -180,12 +183,37 @@ def test_si_nadie_contesta_es_un_no(caplog: pytest.LogCaptureFixture) -> None:
     assert "Nadie contestó la confirmación" in caplog.text
 
 
-def test_si_no_queda_claro_vuelve_a_escuchar() -> None:
-    scene = Scene("mmm", "", "sí")
+def test_si_no_queda_claro_lo_dice_y_vuelve_a_escuchar() -> None:
+    # Sin el aviso, el usuario no sabe si Kronos lo oyó.
+    scene = Scene("mmm", "sí, confirmo")
 
     asyncio.run(scene.run())
 
     assert scene.responder.answers == [True]
+    assert scene.speaker.spoken == ["Dale.", QUESTION, RETRY, "Listo."]
+    assert scene.listener.heard_before[2] == ["Dale.", QUESTION, RETRY]
+
+
+def test_registra_si_la_respuesta_llego_por_voz(caplog: pytest.LogCaptureFixture) -> None:
+    scene = Scene("mmm", "Sí")
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(scene.run())
+
+    assert "No quedó claro si fue un sí o un no (3 caracteres)" in caplog.text
+    assert "Confirmación aprobada por voz." in caplog.text
+    assert "mmm" not in caplog.text
+
+
+def test_los_tiempos_del_turno_cuentan_desde_la_pregunta(caplog: pytest.LogCaptureFixture) -> None:
+    # La pregunta es lo primero que suena: sin contarla, el tiempo de la voz daba negativo.
+    scene = Scene("Sí")
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(scene.run())
+
+    summary = next(line for line in caplog.messages if line.startswith("Tiempos del turno"))
+    assert "-" not in summary
 
 
 def test_si_nunca_queda_claro_es_un_no() -> None:
@@ -194,13 +222,17 @@ def test_si_nunca_queda_claro_es_un_no() -> None:
     asyncio.run(scene.run())
 
     assert scene.responder.answers == [False]
+    assert scene.speaker.spoken.count(RETRY) == 2
     # El pedido, tres intentos de respuesta y la escucha de después de responder.
     assert len(scene.listener.heard_before) == 5
 
 
 @pytest.mark.parametrize("approved", [True, False])
-def test_un_clic_contesta_la_pregunta_y_deja_de_escuchar(approved: bool) -> None:
+def test_un_clic_contesta_la_pregunta_y_deja_de_escuchar(
+    approved: bool, caplog: pytest.LogCaptureFixture
+) -> None:
     scene = Scene(...)
+    caplog.set_level(logging.INFO)
 
     async def scenario() -> None:
         await scene.conversation.activate()
@@ -212,6 +244,7 @@ def test_un_clic_contesta_la_pregunta_y_deja_de_escuchar(approved: bool) -> None
 
     assert scene.responder.answers == [approved]
     assert scene.listener.cancelled
+    assert f"Confirmación {'aprobada' if approved else 'rechazada'} con un clic." in caplog.text
     assert scene.recorder.of("confirmation_resolved") == [{"id": "1", "approved": approved}]
 
 
