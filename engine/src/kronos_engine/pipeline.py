@@ -26,11 +26,11 @@ PIPELINE_ENV = "KRONOS_PIPELINE"
 # Idioma en que se transcribe ("es", "en"). PROVISORIO: irá en la configuración.
 LANGUAGE_ENV = "KRONOS_LANGUAGE"
 # Modelo que transcribe: "parakeet", o un tamaño de whisper ("base", "small",
-# "medium"…). Los whisper más grandes entienden mejor y tardan más; los tiempos
-# están en docs/MEDICIONES.md. PROVISORIO: irá en la configuración.
+# "medium"…) para volver al reconocedor anterior. Parakeet es mucho más rápido;
+# los tiempos están en docs/MEDICIONES.md. PROVISORIO: irá en la configuración.
 STT_MODEL_ENV = "KRONOS_STT_MODEL"
-DEFAULT_STT_MODEL = "small"
 PARAKEET = "parakeet"
+DEFAULT_STT_MODEL = PARAKEET
 
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
 MODEL_ENV = "KRONOS_LLM_MODEL"

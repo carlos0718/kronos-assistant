@@ -1,8 +1,12 @@
 import pytest
 
-from kronos_engine.pipeline import stt_for
+from kronos_engine.pipeline import DEFAULT_STT_MODEL, stt_for
 from kronos_engine.voice.parakeet import ParakeetStt
 from kronos_engine.voice.stt import WhisperStt
+
+
+def test_el_reconocedor_de_fabrica_es_parakeet() -> None:
+    assert isinstance(stt_for(DEFAULT_STT_MODEL, "es"), ParakeetStt)
 
 
 def test_parakeet_se_elige_por_su_nombre() -> None:
