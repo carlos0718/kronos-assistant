@@ -26,7 +26,7 @@ from kronos_engine.core.demo import (
 )
 from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.profile import ProfileControl
-from kronos_engine.core.protocol import ClientMessage, ServerMessage
+from kronos_engine.core.protocol import ServerMessage
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.voices import VoiceControl
 
@@ -97,12 +97,8 @@ def create_app(
         await hub.join(websocket)
         try:
             async for incoming in websocket.iter_json():
-                type_ = incoming.get("type") if isinstance(incoming, dict) else None
-                if type_ == ClientMessage.ACTIVATE:
-                    await hub.conversation.activate()
-                elif type_ == ClientMessage.CANCEL:
-                    await hub.conversation.cancel()
-                else:
+                if not await hub.receive(incoming):
+                    type_ = incoming.get("type") if isinstance(incoming, dict) else None
                     error = {"message": f"Mensaje no reconocido: {type_!r}"}
                     await websocket.send_json(message(ServerMessage.ERROR, error))
         finally:

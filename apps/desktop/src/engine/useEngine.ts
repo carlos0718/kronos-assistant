@@ -15,6 +15,9 @@ export const STATE_LABEL: Record<AssistantState, string> = {
   speaking: "Hablando",
 };
 
+/** Una acción delicada que Kronos quiere hacer y espera que el usuario apruebe. */
+export type Confirmation = { id: string; summary: string; detail: string };
+
 // Lo que informa la parte Rust de la app sobre el proceso del motor.
 type EngineStatus =
   | { status: "starting" }
@@ -26,6 +29,7 @@ export function useEngine() {
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [connection, setConnection] = useState<Connection | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
 
@@ -41,6 +45,8 @@ export function useEngine() {
         case "state_changed":
           setError(null);
           setState(message.payload.state);
+          // Si la conversación terminó, ya no hay nada que aprobar.
+          if (message.payload.state === "idle") setConfirmation(null);
           break;
         case "transcript_final":
           // Empieza un intercambio nuevo. Hasta acá se sigue viendo la respuesta
@@ -50,6 +56,12 @@ export function useEngine() {
           break;
         case "assistant_delta":
           setReply((current) => current + message.payload.text);
+          break;
+        case "confirmation_request":
+          setConfirmation(message.payload);
+          break;
+        case "confirmation_resolved":
+          setConfirmation((current) => (current?.id === message.payload.id ? null : current));
           break;
         case "error":
           setError(message.payload.message);
@@ -72,6 +84,7 @@ export function useEngine() {
         if (!disposed) {
           setState("disconnected");
           setConnection(null);
+          setConfirmation(null);
         }
       };
     }
@@ -113,5 +126,5 @@ export function useEngine() {
     setReply("");
   }, []);
 
-  return { state, transcript, reply, error, connection, send, clear };
+  return { state, transcript, reply, error, confirmation, connection, send, clear };
 }

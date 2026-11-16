@@ -1,4 +1,5 @@
-from collections.abc import Iterator
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from typing import Any
 
 import pytest
@@ -8,7 +9,9 @@ from starlette.websockets import WebSocketDisconnect
 
 from kronos_engine import PROTOCOL_VERSION
 from kronos_engine.api.server import create_app
-from kronos_engine.core.demo import DEMO_REPLY, DEMO_TRANSCRIPT, demo_pipeline
+from kronos_engine.core.approval import ApprovalDesk, ApprovalRequest
+from kronos_engine.core.conversation import Pipeline
+from kronos_engine.core.demo import DEMO_REPLY, DEMO_TRANSCRIPT, DemoSpeaker, demo_pipeline
 
 TOKEN = "token-de-prueba"
 WS_URL = f"/ws?token={TOKEN}"
@@ -104,6 +107,65 @@ def test_cancel_corta_el_ciclo(slow_client: TestClient) -> None:
 
         send(ws, "cancel")
         assert summary(ws.receive_json()) == ("state_changed", "idle")
+
+
+class PatientListener:
+    """Oye un pedido y después se queda esperando: la respuesta llega con un clic."""
+
+    def __init__(self) -> None:
+        self._heard = False
+
+    async def listen(
+        self,
+        on_speech_end: Callable[[], Awaitable[None]] | None = None,
+        wait_seconds: float | None = None,
+    ) -> str | None:
+        if self._heard:
+            await asyncio.Event().wait()
+        self._heard = True
+        return "Cerrá Spotify"
+
+
+class AskingResponder:
+    def __init__(self, desk: ApprovalDesk) -> None:
+        self._desk = desk
+
+    async def respond(self, text: str) -> AsyncIterator[str]:
+        approved = await self._desk.confirm(ApprovalRequest("close_app", "cerrar Spotify"))
+        yield "Listo." if approved else "No lo hago."
+
+
+def until(ws: WebSocketTestSession, type_: str) -> dict[str, Any]:
+    """Lee mensajes hasta el primero de ese tipo y devuelve lo que trae."""
+    while (msg := ws.receive_json())["type"] != type_:
+        pass
+    payload: dict[str, Any] = msg["payload"]
+    return payload
+
+
+@pytest.mark.parametrize(
+    ("answer", "approved", "reply"), [("confirm", True, "Listo."), ("deny", False, "No lo hago.")]
+)
+def test_un_clic_en_la_interfaz_contesta_la_confirmacion(
+    answer: str, approved: bool, reply: str
+) -> None:
+    desk = ApprovalDesk()
+    pipeline = Pipeline(PatientListener(), AskingResponder(desk), DemoSpeaker(0), approvals=desk)
+    with (
+        TestClient(create_app(TOKEN, pipeline)) as client,
+        client.websocket_connect(WS_URL) as ws,
+    ):
+        skip_greeting(ws)
+        send(ws, "activate")
+        request = until(ws, "confirmation_request")
+        assert request == {"id": "1", "summary": "cerrar Spotify", "detail": ""}
+
+        ws.send_json({"v": PROTOCOL_VERSION, "type": answer, "payload": {"id": request["id"]}})
+
+        assert until(ws, "confirmation_resolved") == {"id": "1", "approved": approved}
+        assert until(ws, "assistant_delta") == {"text": reply}
+        send(ws, "cancel")
+        assert until(ws, "state_changed")["state"] in {"listening", "idle"}
 
 
 def test_mensaje_desconocido_devuelve_error(client: TestClient) -> None:

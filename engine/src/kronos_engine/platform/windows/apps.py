@@ -1,4 +1,4 @@
-"""Aplicaciones de Windows: las del menú Inicio, y cómo abrirlas."""
+"""Windows: las aplicaciones del menú Inicio y las ventanas abiertas."""
 
 import json
 import logging
@@ -6,7 +6,8 @@ import subprocess
 import threading
 import time
 
-from kronos_engine.core.platform import App
+from kronos_engine.core.platform import App, Window
+from kronos_engine.platform.windows import open_windows
 
 log = logging.getLogger(__name__)
 
@@ -82,3 +83,9 @@ class WindowsPlatform:
         # El explorador abre cualquier entrada del menú Inicio por su identificador.
         # Va como un solo argumento, sin pasar por un intérprete de comandos.
         subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{app.id}"], creationflags=_NO_WINDOW)
+
+    def windows(self) -> list[Window]:
+        return open_windows.list_windows()
+
+    def close_window(self, window: Window) -> None:
+        open_windows.close_window(window)

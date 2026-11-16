@@ -4,7 +4,7 @@
 >
 > Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Latencia y consumo medidos: [docs/MEDICIONES.md](docs/MEDICIONES.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **Fases 1 y 2 en curso (v0.10.0).** Kronos ya ejecuta sus primeras acciones: dice la hora y abre aplicaciones por su nombre. Conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. La latencia y el consumo ya se miden (`pnpm engine:measure`); falta decidir el hardware mínimo con esos números. La transcripción pasó de whisper a Parakeet, unas quince veces más rápido; whisper sigue disponible con `KRONOS_STT_MODEL=small`.
+> Estado: **Fases 1 y 2 en curso (v0.11.0).** Kronos ya ejecuta sus primeras acciones: dice la hora, abre aplicaciones por su nombre y las cierra después de pedirte la confirmación, por voz o con un clic. Conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. La latencia y el consumo ya se miden (`pnpm engine:measure`); falta decidir el hardware mínimo con esos números. La transcripción pasó de whisper a Parakeet, unas quince veces más rápido; whisper sigue disponible con `KRONOS_STT_MODEL=small`.
 
 ## La idea
 
@@ -325,7 +325,7 @@ Construcción, según las fases del documento de arquitectura:
 
 - [x] **Fase 0:** esqueleto del monorepo y prueba de empaquetado (motor "hola mundo" con PyInstaller como recurso de Tauri, con instalador para Windows). Comprobado el 12 nov. 2026: el instalador pesa 14 MB y la app instalada arranca el motor y se conecta con él.
 - [ ] **Fase 1:** bucle de voz con overlay (atajo → escuchar → modelo → hablar). Medir latencia y consumo para definir el hardware mínimo. Primera medición el 14 nov. 2026 ([docs/MEDICIONES.md](docs/MEDICIONES.md)): la transcripción con whisper es casi toda la demora; con Parakeet (15 nov.) baja de 2,24 s a 0,15 s.
-- [ ] **Fase 2:** herramientas y niveles de permiso, con confirmación y clave secreta. Empezada el 16 nov. 2026: el modelo ya pide acciones y un control de permisos, que es código, decide si se ejecutan. Hay dos acciones de nivel 1 (decir la hora y abrir una aplicación). Lo que pida confirmación o clave se rechaza hasta que esas dos existan.
+- [ ] **Fase 2:** herramientas y niveles de permiso, con confirmación y clave secreta. Empezada el 16 nov. 2026: el modelo ya pide acciones y un control de permisos, que es código, decide si se ejecutan. Hay dos acciones de nivel 1 (decir la hora y abrir una aplicación) y una de nivel 2 (cerrar una aplicación), que se confirma con un «sí» o un «no» dichos con claridad o con los botones del overlay. Lo que pida la clave secreta se rechaza hasta que exista.
 - [ ] **Fase 3:** memoria persistente cifrada.
 - [ ] **Fase 4:** rutinas, "avisar y esperar" y Google Calendar.
 - [ ] **Fase 5:** lectura de notificaciones de apps elegidas.
