@@ -118,6 +118,8 @@ Cuándo se usa TDD está en [CONTRIBUTING.md](../CONTRIBUTING.md). Cómo se escr
 | Tope de 300 líneas | `pnpm size:check` | `scripts/check-size.mjs` |
 | Misma versión en todos los archivos | `pnpm version:check` | `scripts/version.mjs` |
 
+`pnpm engine:measure` no es un chequeo: mide la latencia y el consumo del bucle de voz en el equipo donde corre (ver [MEDICIONES.md](MEDICIONES.md)).
+
 Para corregir el formato en lugar de solo verificarlo:
 
 ```

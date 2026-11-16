@@ -7,12 +7,14 @@ la interfaz qué va pasando.
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from kronos_engine.core.protocol import AssistantState, ServerMessage
 from kronos_engine.core.sentences import SentenceSplitter
+from kronos_engine.core.timing import Clock, Step, TurnTimer
 
 log = logging.getLogger(__name__)
 
@@ -40,10 +42,13 @@ class Responder(Protocol):
 
 
 class Speaker(Protocol):
-    async def speak(self, sentences: AsyncIterator[str]) -> None:
+    async def speak(
+        self, sentences: AsyncIterator[str], on_start: Callable[[], None] | None = None
+    ) -> None:
         """Dice las frases a medida que llegan.
 
-        Vuelve cuando terminó de sonar la última.
+        Llama a `on_start` cuando empieza a sonar la primera. Vuelve cuando
+        terminó de sonar la última.
         """
         ...
 
@@ -74,13 +79,17 @@ class Conversation:
         set_state: SetState,
         emit: Emit,
         follow_up: FollowUp | None = None,
+        clock: Clock = time.perf_counter,
     ) -> None:
         """`follow_up` se consulta después de cada respuesta: el usuario puede cambiarla.
 
-        Sin ella, la espera es siempre la del oyente.
+        Sin ella, la espera es siempre la del oyente. `clock` mide cuánto
+        tarda cada turno.
         """
         self._pipeline = pipeline
         self._follow_up = follow_up
+        self._clock = clock
+        self._timer = TurnTimer(clock)
         self._notify_state = set_state
         self._state = AssistantState.IDLE
         self._emit = emit
@@ -115,10 +124,13 @@ class Conversation:
 
     async def _stop_listening(self) -> None:
         # El micrófono ya se cerró: la interfaz deja de mostrar "escuchando".
+        self._timer.mark(Step.SPEECH_END)
         await self._set_state(AssistantState.THINKING)
 
     async def _run(self, heard: str) -> None:
         error: str | None = None
+        # Si el pedido ya se oyó junto con el nombre, el turno empieza con el texto.
+        self._timer = TurnTimer(self._clock)
         try:
             text: str | None = heard or await self._listen()
             # Hasta la primera respuesta la espera es la del oyente; después,
@@ -128,11 +140,14 @@ class Conversation:
             # La conversación termina cuando nadie habla.
             while text is not None:
                 if text:
+                    self._timer.mark(Step.TRANSCRIBED)
                     # No se registra lo que se dijo, solo cuánto: puede ser privado.
                     log.info("Frase entendida (%d caracteres); responde el modelo.", len(text))
                     await self._emit(ServerMessage.TRANSCRIPT_FINAL, {"text": text})
                     await self._set_state(AssistantState.THINKING)
                     await self._reply(text)
+                    if summary := self._timer.summary():
+                        log.info("Tiempos del turno: %s.", summary)
                     if self._follow_up:
                         wait_seconds = self._follow_up()
                 else:
@@ -153,6 +168,7 @@ class Conversation:
             log.info("Seguir escuchando está apagado; termina la conversación.")
             return None
         await self._set_state(AssistantState.LISTENING)
+        self._timer = TurnTimer(self._clock)
         text = await self._pipeline.listener.listen(self._stop_listening, wait_seconds)
         if text is None:
             # Con la espera a la vista se distingue un plazo corto de un micrófono que no oye.
@@ -164,7 +180,10 @@ class Conversation:
     async def _reply(self, text: str) -> None:
         # La voz corre en paralelo: dice cada frase mientras el modelo sigue generando.
         sentences: asyncio.Queue[str | None] = asyncio.Queue()
-        speaking = asyncio.create_task(self._pipeline.speaker.speak(_drain(sentences)))
+        timer = self._timer
+        speaking = asyncio.create_task(
+            self._pipeline.speaker.speak(_drain(sentences), lambda: timer.mark(Step.FIRST_SOUND))
+        )
         splitter = SentenceSplitter()
         started = False
         try:
@@ -174,8 +193,10 @@ class Conversation:
                     await self._set_state(AssistantState.SPEAKING)
                 await self._emit(ServerMessage.ASSISTANT_DELTA, {"text": delta})
                 for sentence in splitter.feed(delta):
+                    timer.mark(Step.FIRST_SENTENCE)
                     sentences.put_nowait(sentence)
             if rest := splitter.flush():
+                timer.mark(Step.FIRST_SENTENCE)
                 sentences.put_nowait(rest)
             sentences.put_nowait(None)
             await speaking

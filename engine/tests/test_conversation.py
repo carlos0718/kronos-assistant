@@ -1,6 +1,11 @@
 import asyncio
+import itertools
+import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
+
+import pytest
 
 from kronos_engine.core.conversation import Conversation, Pipeline
 
@@ -52,8 +57,12 @@ class FakeSpeaker:
     def __init__(self) -> None:
         self.spoken: list[str] = []
 
-    async def speak(self, sentences: AsyncIterator[str]) -> None:
+    async def speak(
+        self, sentences: AsyncIterator[str], on_start: Callable[[], None] | None = None
+    ) -> None:
         async for sentence in sentences:
+            if on_start and not self.spoken:
+                on_start()
             self.spoken.append(sentence)
 
 
@@ -75,6 +84,7 @@ def build(
     responder: FakeResponder | None = None,
     speaker: FakeSpeaker | None = None,
     follow_up: Callable[[], float] | None = None,
+    clock: Callable[[], float] = time.perf_counter,
 ) -> tuple[Conversation, Recorder]:
     recorder = Recorder()
     pipeline = Pipeline(
@@ -82,7 +92,8 @@ def build(
         responder=responder or FakeResponder(["Son las ", "tres. ", "¿Algo más?"]),
         speaker=speaker or FakeSpeaker(),
     )
-    return Conversation(pipeline, recorder.set_state, recorder.emit, follow_up), recorder
+    conversation = Conversation(pipeline, recorder.set_state, recorder.emit, follow_up, clock)
+    return conversation, recorder
 
 
 def test_un_turno_completo_recorre_los_estados_en_orden() -> None:
@@ -174,6 +185,25 @@ def test_con_la_espera_en_cero_termina_despues_de_responder() -> None:
         ("assistant_delta", "Hola."),
         ("state_changed", "idle"),
     ]
+
+
+def test_registra_cuanto_tardo_cada_paso_del_turno(caplog: pytest.LogCaptureFixture) -> None:
+    async def scenario() -> None:
+        # Un reloj que avanza un segundo cada vez que se lo consulta.
+        ticks = itertools.count()
+        conversation, _ = build(
+            listener=FakeListener(announces_speech_end=True), clock=lambda: float(next(ticks))
+        )
+        await conversation.activate()
+        await conversation.wait()
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(scenario())
+
+    assert (
+        "Tiempos del turno: transcribir 1,00 s · modelo 1,00 s · voz 1,00 s · total 3,00 s."
+        in caplog.messages
+    )
 
 
 def test_si_ya_se_oyo_el_pedido_responde_sin_volver_a_escuchar() -> None:
