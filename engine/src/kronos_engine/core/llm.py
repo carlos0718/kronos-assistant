@@ -8,13 +8,19 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-Role = Literal["system", "user", "assistant"]
+from kronos_engine.core.tools import ToolCall, ToolSpec
+
+Role = Literal["system", "user", "assistant", "tool"]
 
 
 @dataclass(frozen=True)
 class Message:
     role: Role
     content: str
+    # Acciones que pidió el modelo en este mensaje (solo con el rol "assistant").
+    tool_calls: tuple[ToolCall, ...] = ()
+    # De qué acción es el resultado (solo con el rol "tool").
+    tool_name: str = ""
 
 
 class LLMError(RuntimeError):
@@ -22,6 +28,11 @@ class LLMError(RuntimeError):
 
 
 class LLMProvider(Protocol):
-    def stream(self, messages: Sequence[Message]) -> AsyncIterator[str]:
-        """Genera la respuesta a la conversación, de a pedazos."""
+    def stream(
+        self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
+    ) -> AsyncIterator[str | ToolCall]:
+        """Genera la respuesta a la conversación, de a pedazos.
+
+        Cada pedazo es texto, o una acción de `tools` que el modelo pide ejecutar.
+        """
         ...

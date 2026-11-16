@@ -3,24 +3,46 @@ from collections.abc import AsyncIterator, Sequence
 
 import pytest
 
-from kronos_engine.agent.responder import AgentResponder
+from kronos_engine.agent.responder import MAX_TOOL_ROUNDS, AgentResponder
 from kronos_engine.core.llm import LLMError, Message
+from kronos_engine.core.tools import ToolCall, ToolSpec
 
 INSTRUCTIONS = "Sos Kronos."
+CLOCK = ToolSpec("current_time", "Dice la hora.")
+ASK_TIME = ToolCall("current_time")
 
 
 class FakeProvider:
-    def __init__(self, replies: list[list[str]], fail_with: Exception | None = None) -> None:
+    def __init__(
+        self, replies: Sequence[Sequence[str | ToolCall]], fail_with: Exception | None = None
+    ) -> None:
         self._replies = replies
         self._fail_with = fail_with
         self.received: list[list[Message]] = []
+        self.offered: list[list[ToolSpec]] = []
 
-    async def stream(self, messages: Sequence[Message]) -> AsyncIterator[str]:
+    async def stream(
+        self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
+    ) -> AsyncIterator[str | ToolCall]:
         self.received.append(list(messages))
-        for delta in self._replies[len(self.received) - 1]:
-            yield delta
+        self.offered.append(list(tools))
+        for piece in self._replies[len(self.received) - 1]:
+            yield piece
         if self._fail_with:
             raise self._fail_with
+
+
+class FakeToolbox:
+    def __init__(self, result: str = "lunes 16 de noviembre de 2026, 15:00") -> None:
+        self._result = result
+        self.ran: list[ToolCall] = []
+
+    def specs(self) -> Sequence[ToolSpec]:
+        return [CLOCK]
+
+    async def run(self, call: ToolCall) -> str:
+        self.ran.append(call)
+        return self._result
 
 
 async def ask(responder: AgentResponder, text: str) -> str:
@@ -114,3 +136,91 @@ def test_lee_las_instrucciones_en_cada_turno() -> None:
     asyncio.run(scenario())
     assert provider.received[0][0] == Message("system", "Sos Kronos.")
     assert provider.received[1][0] == Message("system", "Sos Kronos. El usuario se llama Carlos.")
+
+
+def test_le_ofrece_al_modelo_las_acciones_disponibles() -> None:
+    provider = FakeProvider([["Hola."]])
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, tools=FakeToolbox())
+
+    asyncio.run(ask(responder, "Hola"))
+
+    assert provider.offered == [[CLOCK]]
+
+
+def test_ejecuta_la_accion_que_pide_el_modelo_y_le_pasa_el_resultado() -> None:
+    provider = FakeProvider([[ASK_TIME], ["Son las tres."]])
+    tools = FakeToolbox("lunes 16 de noviembre de 2026, 15:00")
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, tools=tools)
+
+    assert asyncio.run(ask(responder, "¿Qué hora es?")) == "Son las tres."
+    assert tools.ran == [ASK_TIME]
+    assert provider.received[1] == [
+        Message("system", INSTRUCTIONS),
+        Message("user", "¿Qué hora es?"),
+        Message("assistant", "", tool_calls=(ASK_TIME,)),
+        Message("tool", "lunes 16 de noviembre de 2026, 15:00", tool_name="current_time"),
+    ]
+
+
+def test_lo_que_dice_antes_de_la_accion_queda_como_una_frase_aparte() -> None:
+    # Sin el corte, la voz diría «Ya me fijoSon las tres» de corrido.
+    provider = FakeProvider([["Ya me fijo", ASK_TIME], ["Son las tres."]])
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, tools=FakeToolbox())
+
+    assert asyncio.run(ask(responder, "¿Qué hora es?")) == "Ya me fijo\nSon las tres."
+
+
+def test_recuerda_las_acciones_de_los_turnos_anteriores() -> None:
+    provider = FakeProvider([[ASK_TIME], ["Son las tres."], ["De nada."]])
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, tools=FakeToolbox("15:00"))
+
+    async def scenario() -> None:
+        await ask(responder, "¿Qué hora es?")
+        await ask(responder, "Gracias")
+
+    asyncio.run(scenario())
+    assert provider.received[2] == [
+        Message("system", INSTRUCTIONS),
+        Message("user", "¿Qué hora es?"),
+        Message("assistant", "", tool_calls=(ASK_TIME,)),
+        Message("tool", "15:00", tool_name="current_time"),
+        Message("assistant", "Son las tres."),
+        Message("user", "Gracias"),
+    ]
+
+
+def test_un_turno_con_acciones_se_olvida_entero_al_pasar_el_limite() -> None:
+    # Si quedara la mitad, el modelo vería un resultado sin la pregunta que lo pidió.
+    provider = FakeProvider([[ASK_TIME], ["Son las tres."], ["De nada."], ["Chau."]])
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, max_turns=1, tools=FakeToolbox())
+
+    async def scenario() -> None:
+        await ask(responder, "¿Qué hora es?")
+        await ask(responder, "Gracias")
+        await ask(responder, "Chau")
+
+    asyncio.run(scenario())
+    assert provider.received[3] == [
+        Message("system", INSTRUCTIONS),
+        Message("user", "Gracias"),
+        Message("assistant", "De nada."),
+        Message("user", "Chau"),
+    ]
+
+
+def test_si_el_modelo_no_para_de_pedir_acciones_se_le_dejan_de_ofrecer() -> None:
+    provider = FakeProvider([*([[ASK_TIME]] * MAX_TOOL_ROUNDS), ["No pude terminar."]])
+    tools = FakeToolbox()
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, tools=tools)
+
+    assert asyncio.run(ask(responder, "¿Qué hora es?")) == "No pude terminar."
+    assert len(tools.ran) == MAX_TOOL_ROUNDS
+    assert provider.offered[-1] == []
+
+
+def test_sin_acciones_disponibles_ignora_las_que_pida_el_modelo() -> None:
+    provider = FakeProvider([["Hola.", ASK_TIME]])
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS)
+
+    assert asyncio.run(ask(responder, "Hola")) == "Hola."
+    assert len(provider.received) == 1
