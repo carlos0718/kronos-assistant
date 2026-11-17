@@ -16,7 +16,7 @@ Para comparar qué tan bien entienden los reconocedores con una voz real hay un 
 1. `pnpm engine:compare-stt grabar` pide doce frases cortas («Sí.», «No.», «Sí, confirmo.», «Abrí el bloc de notas.»…) y las graba con el micrófono, con el mismo detector de voz y la misma pausa de fin de frase que Kronos. Las guarda fuera del repositorio, en `%LOCALAPPDATA%\Kronos\pruebas-voz`. Con `--tomas 2` pide cada frase dos veces.
 2. `pnpm engine:compare-stt comparar` pasa las grabaciones por Parakeet v3, whisper `small` con el español fijo y Scribe v3 de ElevenLabs. Muestra qué entendió cada uno en cada frase y una tabla con aciertos y tiempo por frase. Una frase vale como acertada si coincide sin contar mayúsculas, tildes ni signos.
 
-ElevenLabs corre en la nube y es de pago: las grabaciones salen de la computadora. Solo se usa si la clave está en la variable `ELEVENLABS_API_KEY`; si no está, se compara el resto. Con `--reconocedores parakeet,base` se elige qué comparar.
+ElevenLabs corre en la nube y es de pago: las grabaciones salen de la computadora. Solo se usa si está la clave, en la variable `ELEVENLABS_API_KEY` o en un archivo `.env` en la raíz del proyecto (copia de `.env.example`, que no se sube al repositorio); si no está, se compara el resto. Con `--reconocedores parakeet,base` se elige qué comparar.
 
 `pnpm engine:measure` lee los mismos ajustes que el motor. Para probar otra pieza se usa la variable de entorno de siempre, por ejemplo `KRONOS_STT_MODEL=small` (whisper) o `KRONOS_LLM_MODEL=qwen3:4b`.
 

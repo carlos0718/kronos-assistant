@@ -12,7 +12,8 @@ usuario en la pestaña Voz. Las guarda fuera del repositorio, en
 `comparar` pasa cada grabación por Parakeet, whisper `small` con el español
 fijo y Scribe de ElevenLabs, e informa cuántas acertó cada uno y cuánto tardó.
 ElevenLabs corre en la nube y es de pago: las grabaciones salen de la
-computadora. Se usa solo si la clave está en la variable ELEVENLABS_API_KEY.
+computadora. Se usa solo si está la clave: en la variable ELEVENLABS_API_KEY o
+en el archivo `.env` de la raíz del proyecto (ver `.env.example`).
 """
 
 import argparse
@@ -54,6 +55,8 @@ PHRASES = [
     "No.",
 ]
 RECOGNIZERS = ["parakeet", "small", "elevenlabs"]
+# Claves que no van al repositorio (el .gitignore lo excluye). Modelo: .env.example.
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 LIST_FILE = "frases.json"
 # Si no se oye nada en este tiempo, se vuelve a pedir la frase.
 WAIT_MS = 15000
@@ -63,6 +66,17 @@ TRIES = 3
 def default_folder() -> Path:
     base = os.environ.get("LOCALAPPDATA") or str(Path.home())
     return Path(base) / "Kronos" / "pruebas-voz"
+
+
+def load_env_file(path: Path) -> None:
+    """Suma las variables de un archivo `NOMBRE=valor`; las que ya existen ganan."""
+    if not path.exists():
+        return
+    # utf-8-sig: algunos editores de Windows guardan una marca al comienzo del archivo.
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        name, sep, value = line.strip().partition("=")
+        if sep and name and not name.startswith("#"):
+            os.environ.setdefault(name.strip(), value.strip().strip("\"'"))
 
 
 def normalized(text: str) -> str:
@@ -218,6 +232,7 @@ def main() -> None:
         help="separados por coma: parakeet, elevenlabs o un tamaño de whisper",
     )
     args = parser.parse_args()
+    load_env_file(ENV_FILE)
     if args.accion == "grabar":
         args.carpeta.mkdir(parents=True, exist_ok=True)
         asyncio.run(record(args.carpeta, max(1, args.tomas)))
