@@ -171,6 +171,19 @@ def _gender(labels: dict[str, Any]) -> Literal["female", "male"] | None:
     return None
 
 
+# ElevenLabs informa el acento en inglés; las voces de Piper muestran el país.
+_ACCENTS = {
+    "american": "Estados Unidos",
+    "british": "Reino Unido",
+    "australian": "Australia",
+    "argentine": "Argentina",
+    "mexican": "México",
+    "spanish": "España",
+    "colombian": "Colombia",
+    "chilean": "Chile",
+}
+
+
 def _voice_info(entry: dict[str, Any]) -> VoiceInfo:
     labels = entry.get("labels") or {}
     accent = str(labels.get("accent") or "")
@@ -179,7 +192,7 @@ def _voice_info(entry: dict[str, Any]) -> VoiceInfo:
         name=str(entry.get("name") or entry["voice_id"]),
         # Los modelos de ElevenLabs hablan español con cualquier voz.
         language="es",
-        region=accent[:1].upper() + accent[1:],
+        region=_ACCENTS.get(accent.lower(), accent[:1].upper() + accent[1:]),
         gender=_gender(labels),
         provider="elevenlabs",
     )

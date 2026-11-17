@@ -196,16 +196,18 @@ def test_el_catalogo_ofrece_las_voces_de_la_cuenta() -> None:
                 "voices": [
                     voice_entry("abc", "Valentina", gender="female", accent="argentine"),
                     voice_entry("def", "Roger", gender="male", accent="american"),
-                    voice_entry("ghi", "Robot"),
+                    voice_entry("ghi", "River", gender="neutral", accent="irish"),
+                    voice_entry("jkl", "Robot"),
                 ],
                 "has_more": False,
             },
         )
 
     assert catalog(handler).voices() == [
-        VoiceInfo("elevenlabs:abc", "Valentina", "es", "Argentine", "female", "elevenlabs"),
-        VoiceInfo("elevenlabs:def", "Roger", "es", "American", "male", "elevenlabs"),
-        VoiceInfo("elevenlabs:ghi", "Robot", "es", "", None, "elevenlabs"),
+        VoiceInfo("elevenlabs:abc", "Valentina", "es", "Argentina", "female", "elevenlabs"),
+        VoiceInfo("elevenlabs:def", "Roger", "es", "Estados Unidos", "male", "elevenlabs"),
+        VoiceInfo("elevenlabs:ghi", "River", "es", "Irish", None, "elevenlabs"),
+        VoiceInfo("elevenlabs:jkl", "Robot", "es", "", None, "elevenlabs"),
     ]
 
 
