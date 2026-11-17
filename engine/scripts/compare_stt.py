@@ -30,6 +30,7 @@ from pathlib import Path
 import numpy as np
 
 from kronos_engine import pipeline
+from kronos_engine.config.env_file import load_env_file, project_env_file
 from kronos_engine.config.settings import SettingsStore
 from kronos_engine.voice import SAMPLE_RATE
 from kronos_engine.voice.elevenlabs import KEY_ENV, MODEL, ElevenLabsError, ElevenLabsStt
@@ -55,8 +56,6 @@ PHRASES = [
     "No.",
 ]
 RECOGNIZERS = ["parakeet", "small", "elevenlabs"]
-# Claves que no van al repositorio (el .gitignore lo excluye). Modelo: .env.example.
-ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 LIST_FILE = "frases.json"
 # Si no se oye nada en este tiempo, se vuelve a pedir la frase.
 WAIT_MS = 15000
@@ -66,17 +65,6 @@ TRIES = 3
 def default_folder() -> Path:
     base = os.environ.get("LOCALAPPDATA") or str(Path.home())
     return Path(base) / "Kronos" / "pruebas-voz"
-
-
-def load_env_file(path: Path) -> None:
-    """Suma las variables de un archivo `NOMBRE=valor`; las que ya existen ganan."""
-    if not path.exists():
-        return
-    # utf-8-sig: algunos editores de Windows guardan una marca al comienzo del archivo.
-    for line in path.read_text(encoding="utf-8-sig").splitlines():
-        name, sep, value = line.strip().partition("=")
-        if sep and name and not name.startswith("#"):
-            os.environ.setdefault(name.strip(), value.strip().strip("\"'"))
 
 
 def normalized(text: str) -> str:
@@ -232,12 +220,14 @@ def main() -> None:
         help="separados por coma: parakeet, elevenlabs o un tamaño de whisper",
     )
     args = parser.parse_args()
-    load_env_file(ENV_FILE)
+    if env_file := project_env_file():
+        load_env_file(env_file)
     if args.accion == "grabar":
         args.carpeta.mkdir(parents=True, exist_ok=True)
         asyncio.run(record(args.carpeta, max(1, args.tomas)))
     else:
-        asyncio.run(compare(args.carpeta, args.reconocedores.split(",")))
+        # PowerShell convierte "a,b" en "a b": valen la coma y el espacio.
+        asyncio.run(compare(args.carpeta, args.reconocedores.replace(",", " ").split()))
 
 
 if __name__ == "__main__":

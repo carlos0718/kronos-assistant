@@ -1,8 +1,9 @@
 """Voz a texto con Scribe, de ElevenLabs (https://elevenlabs.io).
 
-Corre en la nube y es de pago: el audio sale de la computadora. Por ahora solo
-lo usa `engine/scripts/compare_stt.py` para compararlo con Parakeet; el motor
-no lo usa. A diferencia de Parakeet, deja fijar el idioma.
+Corre en la nube y es de pago: el audio sale de la computadora. El motor lo usa
+con KRONOS_STT_MODEL=elevenlabs (ver pipeline.py), y
+`engine/scripts/compare_stt.py` lo compara con Parakeet. A diferencia de
+Parakeet, deja fijar el idioma.
 """
 
 import httpx
@@ -67,6 +68,9 @@ class ElevenLabsStt:
             timeout=_TIMEOUT,
             transport=transport,
         )
+
+    def preload(self) -> None:
+        """No hay nada que cargar: el modelo corre en los servidores de ElevenLabs."""
 
     async def transcribe(self, audio: np.ndarray) -> str:
         files = {"file": ("frase.pcm", _pcm16(audio), "application/octet-stream")}

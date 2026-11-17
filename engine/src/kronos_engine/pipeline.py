@@ -23,6 +23,7 @@ from kronos_engine.core.tools import Tool
 from kronos_engine.core.voices import VoiceControl
 
 if TYPE_CHECKING:
+    from kronos_engine.voice.elevenlabs import ElevenLabsStt
     from kronos_engine.voice.parakeet import ParakeetStt
     from kronos_engine.voice.stt import WhisperStt
 
@@ -32,9 +33,12 @@ PIPELINE_ENV = "KRONOS_PIPELINE"
 LANGUAGE_ENV = "KRONOS_LANGUAGE"
 # Modelo que transcribe: "parakeet", o un tamaño de whisper ("base", "small",
 # "medium"…) para volver al reconocedor anterior. Parakeet es mucho más rápido;
-# los tiempos están en docs/MEDICIONES.md. PROVISORIO: irá en la configuración.
+# los tiempos están en docs/MEDICIONES.md. "elevenlabs" transcribe en la nube,
+# de pago, con la clave de ELEVENLABS_API_KEY: lo que oye el micrófono sale de
+# la computadora, incluso en reposo. PROVISORIO: irá en la configuración.
 STT_MODEL_ENV = "KRONOS_STT_MODEL"
 PARAKEET = "parakeet"
+ELEVENLABS = "elevenlabs"
 DEFAULT_STT_MODEL = PARAKEET
 
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
@@ -60,12 +64,15 @@ class Parts:
     end_pause: EndPauseControl
 
 
-def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt":
+def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt | ElevenLabsStt":
     """Elige el reconocedor de voz por el nombre de su modelo."""
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
+    from kronos_engine.voice.elevenlabs import KEY_ENV, ElevenLabsStt
     from kronos_engine.voice.parakeet import ParakeetStt
     from kronos_engine.voice.stt import WhisperStt
 
+    if name == ELEVENLABS:
+        return ElevenLabsStt(os.environ.get(KEY_ENV, ""), language=language)
     if name == PARAKEET:
         # Parakeet reconoce solo el idioma: no recibe el elegido.
         return ParakeetStt()
