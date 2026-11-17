@@ -128,10 +128,26 @@ En esa prueba un turno quedó sin respuesta: pasaron 29 s entre la frase y la si
 
 Para ver qué texto se oyó en una prueba así, el motor se arranca con `KRONOS_DEBUG=1`. De fábrica solo se anota cuántos caracteres.
 
+## Prueba con micrófono del 17 nov. 2026: ElevenLabs
+
+Con la v0.13.0 se probó Scribe v3 de ElevenLabs como reconocedor de todo el motor (conversación y palabra de activación), con `KRONOS_STT_MODEL=elevenlabs`. Fueron cuatro minutos y 13 turnos en el mismo equipo, según la línea `Tiempos del turno`:
+
+| Paso | Mediana | Mínimo | Máximo |
+|---|---|---|---|
+| Transcribir (ElevenLabs) | 1,21 s | 0,92 s | 1,94 s |
+| Modelo: primera frase | 4,87 s | 0,79 s | 7,79 s |
+| Voz: primera frase | 0,13 s | 0,06 s | 0,22 s |
+| **Total hasta que empieza a hablar** | **6,31 s** | 2,49 s | 8,87 s |
+
+- **Quien lo usó dijo que le entendió todo.** Hubo acciones de abrir y cerrar aplicaciones, traer al frente una ya abierta y decir la hora; la confirmación por voz salió al primer intento.
+- **Transcribir tarda unas ocho veces más que con Parakeet** (1,21 s contra 0,16 s): es el viaje a la nube con la frase entera. El modelo de tiempo real de ElevenLabs (`scribe_v3_live`) transcribe mientras se habla y debería bajarlo; no se probó.
+- **Ese día el modelo de lenguaje fue el paso más lento** (4,87 s de mediana), como en otras pruebas: no es comparable con el 14 nov.
+- Antes, con las doce frases cortas de `pnpm engine:compare-stt` dichas por una voz sintética de Piper, ElevenLabs acertó 5 y Parakeet 3. Los dos fallaron «Kronos» y «bloc de notas» con esa voz.
+
 ## Qué falta medir
 
 - Un turno con acción de punta a punta, con voz real.
-- Cuántas respuestas cortas («sí», «no») pasa Parakeet a otro idioma con voz real.
+- Cuántas respuestas cortas («sí», «no») pasa Parakeet a otro idioma con voz real. `pnpm engine:compare-stt` lo mide con grabaciones del usuario; falta correrlo.
 - Por qué se pierden algunas frases antes de llegar al reconocedor.
 - Un equipo sin placa de video, con el modelo local en el procesador.
 - Un modelo en la nube, cuando exista ese proveedor.
