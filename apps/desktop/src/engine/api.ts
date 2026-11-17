@@ -69,3 +69,13 @@ export async function getFollowUp(connection: Connection): Promise<number> {
 export async function setFollowUp(connection: Connection, seconds: number): Promise<void> {
   await request(connection, "/follow-up", { method: "PUT", body: JSON.stringify({ seconds }) });
 }
+
+/** Milisegundos de silencio que dan por terminada la frase del usuario. */
+export async function getEndPause(connection: Connection): Promise<number> {
+  const body: { milliseconds: number } = await (await request(connection, "/end-pause")).json();
+  return body.milliseconds;
+}
+
+export async function setEndPause(connection: Connection, milliseconds: number): Promise<void> {
+  await request(connection, "/end-pause", { method: "PUT", body: JSON.stringify({ milliseconds }) });
+}

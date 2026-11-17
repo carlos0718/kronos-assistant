@@ -7,6 +7,7 @@ import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from kronos_engine.core.conversation import Pipeline
+from kronos_engine.core.end_pause import DEFAULT_MS
 from kronos_engine.core.follow_up import DEFAULT_SECONDS
 from kronos_engine.core.profile import Profile
 from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
@@ -87,6 +88,19 @@ class DemoFollowUp:
 
     def set(self, seconds: int) -> None:
         self._seconds = seconds
+
+
+class DemoEndPause:
+    """Una pausa de fin de frase que solo vive en la memoria."""
+
+    def __init__(self) -> None:
+        self._milliseconds = DEFAULT_MS
+
+    def get(self) -> int:
+        return self._milliseconds
+
+    def set(self, milliseconds: int) -> None:
+        self._milliseconds = milliseconds
 
 
 class DemoVoices:

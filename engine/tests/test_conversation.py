@@ -360,3 +360,43 @@ def test_una_sola_letra_no_es_un_pedido() -> None:
         return responder
 
     assert asyncio.run(scenario()).asked == []
+
+
+def test_al_cortar_un_turno_se_anota_en_que_estaba_y_cuanto_llevaba(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Así se distingue en el registro un modelo colgado de un usuario que interrumpió.
+    class StuckResponder:
+        async def respond(self, text: str) -> AsyncIterator[str]:
+            await asyncio.Event().wait()
+            yield ""
+
+    async def scenario() -> None:
+        recorder = Recorder()
+        pipeline = Pipeline(FakeListener(), StuckResponder(), FakeSpeaker())
+        conversation = Conversation(pipeline, recorder.set_state, recorder.emit)
+        await conversation.activate()
+        for _ in range(5):
+            await asyncio.sleep(0)  # Deja que el turno llegue a esperar al modelo.
+        await conversation.cancel()
+
+    with caplog.at_level(logging.INFO, logger="kronos_engine"):
+        asyncio.run(scenario())
+
+    cut = [record.getMessage() for record in caplog.records if "cortada" in record.getMessage()]
+    assert len(cut) == 1
+    assert cut[0].startswith("Conversación cortada a los 0,0 s de estar esperando al modelo")
+
+
+def test_si_el_modelo_no_dice_nada_queda_anotado(caplog: pytest.LogCaptureFixture) -> None:
+    async def scenario() -> list[str]:
+        speaker = FakeSpeaker()
+        conversation, _ = build(responder=FakeResponder([]), speaker=speaker)
+        await conversation.activate()
+        await conversation.wait()
+        return speaker.spoken
+
+    with caplog.at_level(logging.INFO, logger="kronos_engine"):
+        assert asyncio.run(scenario()) == []
+
+    assert "El modelo terminó sin decir nada." in caplog.messages

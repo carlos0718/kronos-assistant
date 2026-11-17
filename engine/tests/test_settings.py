@@ -17,6 +17,7 @@ def test_lo_que_se_guarda_se_vuelve_a_leer(tmp_path: Path) -> None:
     assert SettingsStore(path).load() == Settings(voice="es_ES-davefx-medium")
     assert path.read_text(encoding="utf-8") == (
         'voice = "es_ES-davefx-medium"\nwake_word = false\nfollow_up_seconds = 8\n'
+        "end_pause_ms = 1500\n"
     )
 
 
@@ -64,5 +65,21 @@ def test_la_espera_despues_de_responder_se_guarda_y_se_vuelve_a_leer(tmp_path: P
 def test_una_espera_invalida_vuelve_a_la_de_fabrica(tmp_path: Path, value: str) -> None:
     path = tmp_path / "config.toml"
     path.write_text(f"follow_up_seconds = {value}\n", encoding="utf-8")
+
+    assert SettingsStore(path).load() == Settings()
+
+
+def test_la_pausa_de_fin_de_frase_se_guarda_y_se_vuelve_a_leer(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path / "config.toml")
+
+    store.update(end_pause_ms=2500)
+
+    assert store.load() == Settings(end_pause_ms=2500)
+
+
+@pytest.mark.parametrize("value", ["0", "499", "5001", "1500.5", "true", '"larga"'])
+def test_una_pausa_invalida_vuelve_a_la_de_fabrica(tmp_path: Path, value: str) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(f"end_pause_ms = {value}\n", encoding="utf-8")
 
     assert SettingsStore(path).load() == Settings()

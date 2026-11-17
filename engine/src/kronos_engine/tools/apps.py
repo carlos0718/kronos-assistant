@@ -2,6 +2,7 @@
 
 import asyncio
 import difflib
+import logging
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
@@ -9,6 +10,8 @@ from typing import Any
 
 from kronos_engine.core.platform import App, Platform, Window
 from kronos_engine.core.tools import PermissionLevel, ToolError, ToolSpec
+
+log = logging.getLogger(__name__)
 
 # Qué tan parecida tiene que ser una palabra para tomarla por un error de
 # transcripción. Con 0,75 entra una letra cambiada en una palabra de cuatro:
@@ -148,8 +151,11 @@ class OpenAppTool:
             windows = find_windows(app.name, await asyncio.to_thread(self._platform.windows))
             if windows:
                 await asyncio.to_thread(self._platform.focus_window, windows[0])
+                # Sin el nombre: el registro no guarda qué aplicaciones usa el usuario.
+                log.info("La aplicación ya estaba abierta: quedó al frente, no se abrió otra.")
                 return f"{app.name} ya estaba abierta: quedó al frente y no se abrió otra ventana."
         await asyncio.to_thread(self._platform.open_app, app)
+        log.info("La aplicación se abrió en una ventana nueva.")
         return f"Se abrió {app.name}."
 
     def _not_found(self, name: str, apps: Sequence[App]) -> str:

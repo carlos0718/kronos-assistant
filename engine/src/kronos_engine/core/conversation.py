@@ -23,6 +23,12 @@ log = logging.getLogger(__name__)
 
 # Letras o números que tiene que tener lo que se oyó para tomarlo por un pedido.
 MIN_REQUEST_LETTERS = 2
+# Cómo se nombra en el registro lo que Kronos estaba haciendo cuando lo cortaron.
+_DOING = {
+    AssistantState.LISTENING: "escuchando",
+    AssistantState.THINKING: "esperando al modelo",
+    AssistantState.SPEAKING: "hablando",
+}
 
 
 class Listener(Protocol):
@@ -94,6 +100,7 @@ class Conversation:
         self._timer = TurnTimer(clock)
         self._notify_state = set_state
         self._state = AssistantState.IDLE
+        self._state_since = time.monotonic()
         self._emit = emit
         self._turn: asyncio.Task[None] | None = None
         # Lo que Kronos está diciendo en el turno en curso.
@@ -132,6 +139,7 @@ class Conversation:
     async def _set_state(self, state: AssistantState) -> None:
         if state != self._state:
             self._state = state
+            self._state_since = time.monotonic()
             await self._notify_state(state)
 
     async def _stop_listening(self) -> None:
@@ -166,6 +174,14 @@ class Conversation:
                     # Un ruido o algo que no se pudo transcribir: sigue escuchando.
                     log.info("Se oyó algo que no se entendió; sigue escuchando.")
                 text = await self._listen(wait_seconds)
+        except asyncio.CancelledError:
+            # No usa el reloj del turno: ese mide los pasos de la respuesta.
+            # Con el estado y el tiempo se distingue un modelo que no contesta
+            # de un usuario que interrumpió.
+            if doing := _DOING.get(self._state):
+                waited = f"{time.monotonic() - self._state_since:.1f}".replace(".", ",")
+                log.info("Conversación cortada a los %s s de estar %s.", waited, doing)
+            raise
         except Exception as exc:  # noqa: BLE001 - cualquier fallo se le informa al usuario.
             error = str(exc) or type(exc).__name__
             log.warning("La conversación terminó por un fallo: %s", error)
@@ -198,6 +214,7 @@ class Conversation:
         voice = SpokenReply(self._pipeline.speaker.speak, lambda: timer.mark(Step.FIRST_SOUND))
         self._voice = voice
         splitter = SentenceSplitter()
+        said = False
         try:
             async for delta in self._pipeline.responder.respond(text):
                 # Después de una confirmación el estado volvió a "pensando".
@@ -206,9 +223,14 @@ class Conversation:
                 for sentence in splitter.feed(delta):
                     timer.mark(Step.FIRST_SENTENCE)
                     voice.say(sentence)
+                    said = True
             if rest := splitter.flush():
                 timer.mark(Step.FIRST_SENTENCE)
                 voice.say(rest)
+                said = True
+            if not said:
+                # Sin esto, un turno mudo no deja rastro: tampoco tiene tiempos.
+                log.info("El modelo terminó sin decir nada.")
             await voice.finish()
         finally:
             self._voice = None

@@ -87,7 +87,13 @@ def main() -> None:
 
     parts = build()
     app = create_app(
-        token, parts.pipeline, parts.voices, parts.standby, parts.profile, parts.follow_up
+        token,
+        parts.pipeline,
+        parts.voices,
+        parts.standby,
+        parts.profile,
+        parts.follow_up,
+        parts.end_pause,
     )
     config = uvicorn.Config(app, log_level="warning", ws="websockets-sansio")
     uvicorn.Server(config).run(sockets=[sock])

@@ -13,7 +13,7 @@ Hay dos formas, y miden lo mismo: cuánto pasa entre que el usuario termina de h
 
 `pnpm engine:measure` lee los mismos ajustes que el motor. Para probar otra pieza se usa la variable de entorno de siempre, por ejemplo `KRONOS_STT_MODEL=small` (whisper) o `KRONOS_LLM_MODEL=qwen3:4b`.
 
-A los dos totales hay que sumarles **0,8 s**: es el silencio que Kronos espera para dar la frase por terminada.
+A los dos totales hay que sumarles el silencio que Kronos espera para dar la frase por terminada: **1,5 s** de fábrica desde la v0.12.0 (antes 0,8 s y 1,2 s). Se elige en la pestaña Voz de la configuración, entre 0,5 y 5 s.
 
 ## Resultados del 14 nov. 2026
 
@@ -112,8 +112,12 @@ Siete minutos y 24 turnos con la v0.11.0, en el mismo equipo. Lo que se vio:
 
 - **«Bloc de notas» se transcribió «blog de notas»** y no se encontró la aplicación. Desde la v0.11.1 se tolera una letra cambiada en una palabra de cuatro.
 - **Un «sí» suelto se transcribió «C».** En tres de seis confirmaciones hubo al menos una respuesta que no se entendió; «sí, confirmo» se entendió siempre. Desde la v0.11.1 la pregunta pide esa respuesta, «c» vale como sí y Kronos avisa cuando no entendió.
-- **Kronos cortó al usuario en una pausa.** El silencio que da por terminada la frase pasó de 0,8 s a 1,2 s; se cambia con `KRONOS_END_SILENCE_MS`. Suma 0,4 s a cada turno.
+- **Kronos cortó al usuario en una pausa.** El silencio que da por terminada la frase pasó de 0,8 s a 1,2 s, lo que suma 0,4 s a cada turno.
 - **Transcribir siguió rápido** (0,09 a 0,32 s), pero el modelo tardó entre 1 y 10 s en la primera frase, sin que se buscara la causa.
+
+En una segunda prueba ese mismo día, con la v0.11.1 (16 turnos), 1,2 s ya no cortó al usuario, que igual pidió una pausa más larga y poder elegirla. Desde la v0.12.0 es de 1,5 s de fábrica y se cambia en la pestaña Voz, sin reiniciar. La variable `KRONOS_END_SILENCE_MS` dejó de existir.
+
+En esa prueba un turno quedó sin respuesta: pasaron 29 s entre la frase y la siguiente, y el usuario vio a Kronos «pensando». No se supo si el modelo no llegó a contestar o si contestó vacío, porque el registro no anotaba ninguno de los dos casos. Desde la v0.12.0 anota los dos: `Conversación cortada a los 29,0 s de estar esperando al modelo.` y `El modelo terminó sin decir nada.`
 
 Para ver qué texto se oyó en una prueba así, el motor se arranca con `KRONOS_DEBUG=1`. De fábrica solo se anota cuántos caracteres.
 
