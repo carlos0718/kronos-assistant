@@ -7,8 +7,12 @@ export type Voice = {
   id: string;
   name: string;
   language: "es" | "en";
+  /** Vacío si no se sabe. */
   region: string;
-  gender: "female" | "male";
+  /** null si no se sabe. */
+  gender: "female" | "male" | null;
+  /** Piper corre en la computadora; ElevenLabs, en la nube y de pago. */
+  provider: "piper" | "elevenlabs";
 };
 
 export type VoiceList = { current: string; voices: Voice[] };

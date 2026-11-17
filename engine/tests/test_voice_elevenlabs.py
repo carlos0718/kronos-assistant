@@ -1,11 +1,20 @@
 import asyncio
+import json
 from collections.abc import Callable
 
 import httpx
 import numpy as np
 import pytest
 
-from kronos_engine.voice.elevenlabs import ElevenLabsError, ElevenLabsStt
+from kronos_engine.core.voices import VoiceInfo
+from kronos_engine.voice.elevenlabs import (
+    TTS_MODEL,
+    ElevenLabsCatalog,
+    ElevenLabsError,
+    ElevenLabsStt,
+    ElevenLabsTts,
+    is_elevenlabs_voice,
+)
 
 AUDIO = np.array([0.0, 0.5, -0.5, 1.5], dtype=np.float32)
 
@@ -100,3 +109,151 @@ def test_sin_conexion_lo_dice() -> None:
 def test_sin_clave_no_se_puede_crear() -> None:
     with pytest.raises(ElevenLabsError, match="ELEVENLABS_API_KEY"):
         ElevenLabsStt("")
+
+
+# Voz: texto → audio.
+
+
+def tts(handler: Callable[[httpx.Request], httpx.Response]) -> ElevenLabsTts:
+    return ElevenLabsTts(
+        "clave-de-prueba", "elevenlabs:abc123", transport=httpx.MockTransport(handler)
+    )
+
+
+def pcm(*values: int) -> bytes:
+    return np.array(values, dtype="<i2").tobytes()
+
+
+def test_la_voz_pide_el_audio_crudo_con_el_modelo_y_el_idioma() -> None:
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, content=pcm(0))
+
+    asyncio.run(tts(handler).synthesize("Hola."))
+
+    request = sent[0]
+    assert request.url.path == "/v1/text-to-speech/abc123"
+    assert request.url.params["output_format"] == "pcm_24000"
+    assert request.headers["xi-api-key"] == "clave-de-prueba"
+    assert json.loads(request.content) == {
+        "text": "Hola.",
+        "model_id": TTS_MODEL,
+        "language_code": "es",
+    }
+
+
+def test_la_voz_devuelve_el_audio_entre_menos_uno_y_uno() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=pcm(0, 16384, -16384))
+
+    speech = asyncio.run(tts(handler).synthesize("Hola."))
+
+    assert speech.samples.tolist() == [0.0, 0.5, -0.5]
+    assert speech.sample_rate == 24_000
+
+
+def test_cambiar_de_voz_usa_la_nueva() -> None:
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(200, content=pcm(0))
+
+    voice = tts(handler)
+    voice.set_voice("elevenlabs:xyz789")
+    asyncio.run(voice.synthesize("Hola."))
+
+    assert voice.voice == "elevenlabs:xyz789"
+    assert paths == ["/v1/text-to-speech/xyz789"]
+
+
+def test_una_voz_que_el_plan_no_permite_trae_el_motivo() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(402, json={"detail": {"message": "Free users cannot use this"}})
+
+    with pytest.raises(ElevenLabsError, match="Free users cannot use this"):
+        asyncio.run(tts(handler).synthesize("Hola."))
+
+
+# Catálogo: las voces de la cuenta.
+
+
+def voice_entry(voice_id: str, name: str, **labels: str) -> dict[str, object]:
+    return {"voice_id": voice_id, "name": name, "labels": labels}
+
+
+def catalog(handler: Callable[[httpx.Request], httpx.Response]) -> ElevenLabsCatalog:
+    return ElevenLabsCatalog("clave-de-prueba", transport=httpx.MockTransport(handler))
+
+
+def test_el_catalogo_ofrece_las_voces_de_la_cuenta() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "voices": [
+                    voice_entry("abc", "Valentina", gender="female", accent="argentine"),
+                    voice_entry("def", "Roger", gender="male", accent="american"),
+                    voice_entry("ghi", "Robot"),
+                ],
+                "has_more": False,
+            },
+        )
+
+    assert catalog(handler).voices() == [
+        VoiceInfo("elevenlabs:abc", "Valentina", "es", "Argentine", "female", "elevenlabs"),
+        VoiceInfo("elevenlabs:def", "Roger", "es", "American", "male", "elevenlabs"),
+        VoiceInfo("elevenlabs:ghi", "Robot", "es", "", None, "elevenlabs"),
+    ]
+
+
+def test_el_catalogo_sigue_las_paginas() -> None:
+    tokens: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        token = request.url.params.get("next_page_token")
+        tokens.append(token)
+        if token is None:
+            return httpx.Response(
+                200,
+                json={"voices": [voice_entry("a", "A")], "has_more": True, "next_page_token": "p2"},
+            )
+        return httpx.Response(200, json={"voices": [voice_entry("b", "B")], "has_more": False})
+
+    assert [voice.name for voice in catalog(handler).voices()] == ["A", "B"]
+    assert tokens == [None, "p2"]
+
+
+def test_el_catalogo_pregunta_una_sola_vez() -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(200, json={"voices": [voice_entry("a", "A")], "has_more": False})
+
+    voices = catalog(handler)
+    voices.voices()
+    voices.voices()
+
+    assert len(calls) == 1
+
+
+def test_si_elevenlabs_falla_el_catalogo_queda_vacio_y_vuelve_a_intentar() -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(401, json={"detail": {"message": "missing permission"}})
+
+    voices = catalog(handler)
+
+    assert voices.voices() == []
+    assert voices.voices() == []
+    assert len(calls) == 2
+
+
+def test_reconoce_las_voces_de_elevenlabs_por_su_id() -> None:
+    assert is_elevenlabs_voice("elevenlabs:abc")
+    assert not is_elevenlabs_voice("es_AR-daniela-high")

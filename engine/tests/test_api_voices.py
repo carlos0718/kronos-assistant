@@ -8,7 +8,7 @@ from kronos_engine.core.demo import DemoVoices, demo_pipeline
 
 TOKEN = "token-de-prueba"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
-COMMON = {"language": "es", "region": "Demo"}
+COMMON = {"language": "es", "region": "Demo", "provider": "piper"}
 
 
 @pytest.fixture

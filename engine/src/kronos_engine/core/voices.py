@@ -12,8 +12,10 @@ class VoiceInfo:
     id: str
     name: str
     language: Literal["es", "en"]
-    region: str
-    gender: Literal["female", "male"]
+    region: str  # Vacío si no se sabe.
+    gender: Literal["female", "male"] | None  # None si no se sabe.
+    # Piper corre en la computadora; ElevenLabs, en la nube y de pago.
+    provider: Literal["piper", "elevenlabs"] = "piper"
 
 
 class UnknownVoiceError(ValueError):
