@@ -8,12 +8,14 @@ from typing import TYPE_CHECKING
 from kronos_engine.core.approval import ApprovalDesk
 from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.demo import (
+    DemoEndPause,
     DemoFollowUp,
     DemoProfile,
     DemoVoices,
     DemoWakeWord,
     demo_pipeline,
 )
+from kronos_engine.core.end_pause import EndPauseControl
 from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
@@ -35,13 +37,6 @@ STT_MODEL_ENV = "KRONOS_STT_MODEL"
 PARAKEET = "parakeet"
 DEFAULT_STT_MODEL = PARAKEET
 
-# Milisegundos de silencio que dan por terminada la frase del usuario. Con
-# menos, Kronos contesta más rápido pero corta a quien hace una pausa para
-# pensar. PROVISORIO: irá en la configuración.
-END_SILENCE_ENV = "KRONOS_END_SILENCE_MS"
-DEFAULT_END_SILENCE_MS = 1200.0
-_END_SILENCE_RANGE = (300.0, 5000.0)
-
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
 MODEL_ENV = "KRONOS_LLM_MODEL"
 DEFAULT_MODEL = "qwen3:8b"
@@ -62,6 +57,7 @@ class Parts:
     standby: Standby
     profile: ProfileControl
     follow_up: FollowUpControl
+    end_pause: EndPauseControl
 
 
 def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt":
@@ -74,16 +70,6 @@ def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt":
         # Parakeet reconoce solo el idioma: no recibe el elegido.
         return ParakeetStt()
     return WhisperStt(name, language=language)
-
-
-def end_silence_ms(value: str | None) -> float:
-    """La pausa elegida, o la de fábrica si no se eligió o no es válida."""
-    try:
-        chosen = float(value or "")
-    except ValueError:
-        return DEFAULT_END_SILENCE_MS
-    low, high = _END_SILENCE_RANGE
-    return chosen if low <= chosen <= high else DEFAULT_END_SILENCE_MS
 
 
 def available_tools() -> list[Tool]:
@@ -104,19 +90,24 @@ def available_tools() -> list[Tool]:
 def build() -> Parts:
     if os.environ.get(PIPELINE_ENV) == "demo":
         return Parts(
-            demo_pipeline(), DemoVoices(), Standby(DemoWakeWord()), DemoProfile(), DemoFollowUp()
+            demo_pipeline(),
+            DemoVoices(),
+            Standby(DemoWakeWord()),
+            DemoProfile(),
+            DemoFollowUp(),
+            DemoEndPause(),
         )
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
     from kronos_engine.agent.instructions import instructions_for
     from kronos_engine.agent.responder import AgentResponder
+    from kronos_engine.config.end_pause import StoredEndPause
     from kronos_engine.config.follow_up import StoredFollowUp
     from kronos_engine.config.profile import StoredProfile
     from kronos_engine.config.settings import SettingsStore
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
     from kronos_engine.permissions.gate import PermissionGate
     from kronos_engine.voice.catalog import DEFAULT_VOICES
-    from kronos_engine.voice.endpointing import EndpointConfig
     from kronos_engine.voice.listener import VoiceListener
     from kronos_engine.voice.microphone import open_microphone
     from kronos_engine.voice.playback import play
@@ -143,6 +134,7 @@ def build() -> Parts:
     model.preload()
 
     profile = StoredProfile(store)
+    end_pause = StoredEndPause(store)
     # El modelo propone las acciones; el control de permisos decide si se
     # ejecutan y, para las delicadas, le pregunta al usuario.
     approvals = ApprovalDesk()
@@ -158,7 +150,8 @@ def build() -> Parts:
             open_microphone,
             SileroVad(),
             stt,
-            EndpointConfig(end_silence_ms=end_silence_ms(os.environ.get(END_SILENCE_ENV))),
+            # Se lee cada vez que escucha: el usuario la cambia desde el panel sin reiniciar.
+            end_silence_ms=end_pause.get,
         ),
         responder=AgentResponder(model, current_instructions, tools=tools),
         speaker=VoiceSpeaker(tts, play),
@@ -173,4 +166,4 @@ def build() -> Parts:
         remember=lambda enabled: store.update(wake_word=enabled),
     )
     voices = PiperVoices(tts, PiperTts, play, lambda voice: store.update(voice=voice))
-    return Parts(pipeline, voices, standby, profile, StoredFollowUp(store))
+    return Parts(pipeline, voices, standby, profile, StoredFollowUp(store), end_pause)

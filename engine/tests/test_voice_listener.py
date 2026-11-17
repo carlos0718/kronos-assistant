@@ -140,3 +140,31 @@ def test_una_espera_mas_larga_alcanza_a_quien_tarda_en_hablar() -> None:
     listener, _, _, _ = build([SILENCE] * 6 + [VOICE, VOICE, SILENCE, SILENCE])
 
     assert asyncio.run(listener.listen(wait_seconds=1)) == "prendé la luz"
+
+
+def test_la_pausa_que_termina_la_frase_se_consulta_cada_vez_que_escucha() -> None:
+    # Con la configurada (200 ms) la frase terminaría en el cuadro 3; con 400 ms
+    # la pausa del medio no la corta.
+    probabilities = [VOICE, VOICE, SILENCE, SILENCE, SILENCE, VOICE, VOICE] + [SILENCE] * 4
+    microphone = FakeMicrophone(len(probabilities))
+    stt = FakeStt(microphone)
+    chosen = [400.0]
+    listener = VoiceListener(
+        microphone.open, FakeVad(probabilities), stt, CONFIG, end_silence_ms=lambda: chosen[0]
+    )
+
+    asyncio.run(listener.listen())
+
+    assert len(stt.audios[0]) == len(probabilities) * FRAME_SAMPLES
+
+    # El usuario la cambia en el panel: vale desde la próxima vez que escucha.
+    chosen[0] = 200.0
+    microphone = FakeMicrophone(len(probabilities))
+    stt = FakeStt(microphone)
+    listener = VoiceListener(
+        microphone.open, FakeVad(probabilities), stt, CONFIG, end_silence_ms=lambda: chosen[0]
+    )
+
+    asyncio.run(listener.listen())
+
+    assert len(stt.audios[0]) == 4 * FRAME_SAMPLES

@@ -74,10 +74,23 @@ type SliderProps = {
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  step?: number;
+  /** Cómo se escribe un valor; sin esto, tal cual. */
+  format?: (value: number) => string;
   disabled?: boolean;
 };
 
-export function Slider({ label, icon, value, onChange, min = 0, max = 100, disabled }: SliderProps) {
+export function Slider({
+  label,
+  icon,
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  format = String,
+  disabled,
+}: SliderProps) {
   const pct = ((value - min) / (max - min)) * 100;
   return (
     <div className="slider">
@@ -91,6 +104,7 @@ export function Slider({ label, icon, value, onChange, min = 0, max = 100, disab
             type="range"
             min={min}
             max={max}
+            step={step}
             value={value}
             disabled={disabled}
             aria-label={label}
@@ -98,11 +112,11 @@ export function Slider({ label, icon, value, onChange, min = 0, max = 100, disab
             onChange={(e) => onChange(Number(e.target.value))}
           />
           <div className="slider-range">
-            <span>{min}</span>
-            <span>{max}</span>
+            <span>{format(min)}</span>
+            <span>{format(max)}</span>
           </div>
         </div>
-        <output className="slider-value">{value}</output>
+        <output className="slider-value">{format(value)}</output>
       </div>
     </div>
   );

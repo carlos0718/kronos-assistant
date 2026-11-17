@@ -213,3 +213,16 @@ def test_sin_nombre_no_hay_nada_que_cerrar() -> None:
 
 def test_abrir_una_aplicacion_se_describe_con_su_nombre() -> None:
     assert asyncio.run(OpenAppTool(FakePlatform()).describe({"name": "Spotify"})) == "abrir Spotify"
+
+
+def test_el_registro_distingue_abrir_de_traer_al_frente(caplog: pytest.LogCaptureFixture) -> None:
+    # Sin el nombre de la aplicación: el registro no guarda qué usa el usuario.
+    with caplog.at_level("INFO", logger="kronos_engine"):
+        asyncio.run(OpenAppTool(FakePlatform(windows=[])).run({"name": "bloc de notas"}))
+        asyncio.run(OpenAppTool(FakePlatform()).run({"name": "bloc de notas"}))
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert len(messages) == 2
+    assert "se abrió" in messages[0]
+    assert "al frente" in messages[1]
+    assert not any("Bloc" in message for message in messages)

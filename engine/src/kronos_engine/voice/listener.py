@@ -10,6 +10,8 @@ import numpy as np
 from kronos_engine.voice.endpointing import EndpointConfig, Endpointer, Verdict
 
 OpenMicrophone = Callable[[], AbstractAsyncContextManager[AsyncIterator[np.ndarray]]]
+# Milisegundos de silencio que dan por terminada la frase.
+EndSilence = Callable[[], float]
 
 
 class Vad(Protocol):
@@ -56,11 +58,17 @@ class VoiceListener:
         vad: Vad,
         stt: Stt,
         config: EndpointConfig | None = None,
+        end_silence_ms: EndSilence | None = None,
     ) -> None:
+        """`end_silence_ms` se consulta cada vez que escucha: el usuario puede cambiarla.
+
+        Sin ella, la pausa que termina la frase es la de `config`.
+        """
         self._open_microphone = open_microphone
         self._vad = vad
         self._stt = stt
         self._config = config or EndpointConfig()
+        self._end_silence_ms = end_silence_ms
 
     async def listen(
         self,
@@ -68,6 +76,8 @@ class VoiceListener:
         wait_seconds: float | None = None,
     ) -> str | None:
         config = self._config
+        if self._end_silence_ms:
+            config = replace(config, end_silence_ms=self._end_silence_ms())
         if wait_seconds is not None:
             config = replace(config, start_timeout_ms=wait_seconds * 1000)
         async with self._open_microphone() as microphone:

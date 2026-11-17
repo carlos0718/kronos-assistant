@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
   type Connection,
+  getEndPause,
   getFollowUp,
   listVoices,
   previewVoice,
   selectVoice,
+  setEndPause,
   setFollowUp,
   type Voice,
 } from "../../engine/api";
@@ -18,6 +20,11 @@ const LANGUAGES = [
 const GENDER_LABEL = { female: "Mujer", male: "Hombre" };
 // El mismo tope que valida el motor (`core/follow_up.py`).
 const FOLLOW_UP_MAX = 60;
+// El mismo rango que valida el motor (`core/end_pause.py`), en segundos.
+const END_PAUSE_MIN = 0.5;
+const END_PAUSE_MAX = 5;
+const END_PAUSE_STEP = 0.1;
+const decimal = new Intl.NumberFormat("es", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 // Mientras se arrastra el deslizador no se guarda cada paso: se espera a que se detenga.
 const SAVE_DELAY_MS = 300;
 
@@ -28,17 +35,21 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
   const [error, setError] = useState<string | null>(null);
   // Hasta que el motor informa la espera guardada, el deslizador queda apagado.
   const [followUp, setFollowUpSeconds] = useState<number | null>(null);
+  // En segundos, como se muestra; el motor la guarda en milisegundos.
+  const [endPause, setEndPauseSeconds] = useState<number | null>(null);
   const saving = useRef<number | undefined>(undefined);
+  const savingPause = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!connection) return;
     let stale = false;
-    Promise.all([listVoices(connection), getFollowUp(connection)])
-      .then(([list, seconds]) => {
+    Promise.all([listVoices(connection), getFollowUp(connection), getEndPause(connection)])
+      .then(([list, seconds, milliseconds]) => {
         if (stale) return;
         setVoices(list.voices);
         setCurrent(list.current);
         setFollowUpSeconds(seconds);
+        setEndPauseSeconds(milliseconds / 1000);
       })
       .catch((e) => !stale && setError(String(e.message ?? e)));
     return () => {
@@ -54,6 +65,18 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
     // No se cancela al salir de la pestaña: el último valor elegido se guarda igual.
     saving.current = window.setTimeout(() => {
       setFollowUp(connection, seconds).catch((e) => setError(String(e.message ?? e)));
+    }, SAVE_DELAY_MS);
+  }
+
+  function changeEndPause(seconds: number) {
+    if (!connection) return;
+    setEndPauseSeconds(seconds);
+    setError(null);
+    window.clearTimeout(savingPause.current);
+    savingPause.current = window.setTimeout(() => {
+      // El deslizador da decimales inexactos (1,7000000000000002): se redondea al guardar.
+      const milliseconds = Math.round(seconds * 10) * 100;
+      setEndPause(connection, milliseconds).catch((e) => setError(String(e.message ?? e)));
     }, SAVE_DELAY_MS);
   }
 
@@ -132,6 +155,20 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
           onChange={changeFollowUp}
           max={FOLLOW_UP_MAX}
           disabled={!connection || followUp === null}
+        />
+      </Group>
+
+      <Group title="Pausas al hablar" hint="más larga no te corta en una pausa, pero Kronos tarda más en contestar">
+        <Slider
+          label="Silencio que da por terminada tu frase (segundos)"
+          icon="mic"
+          value={endPause ?? END_PAUSE_MIN}
+          onChange={changeEndPause}
+          min={END_PAUSE_MIN}
+          max={END_PAUSE_MAX}
+          step={END_PAUSE_STEP}
+          format={(seconds) => decimal.format(seconds)}
+          disabled={!connection || endPause === null}
         />
       </Group>
 

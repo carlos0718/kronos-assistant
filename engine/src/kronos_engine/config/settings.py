@@ -10,6 +10,7 @@ from typing import Any
 
 import tomli_w
 
+from kronos_engine.core.end_pause import DEFAULT_MS, MAX_MS, MIN_MS
 from kronos_engine.core.follow_up import DEFAULT_SECONDS, MAX_SECONDS
 
 log = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ class Settings:
     user_about: str | None = None  # Descripción corta del usuario, como contexto.
     # Segundos que sigue escuchando después de responder; cero es no seguir.
     follow_up_seconds: int = DEFAULT_SECONDS
+    # Milisegundos de silencio que dan por terminada la frase del usuario.
+    end_pause_ms: int = DEFAULT_MS
 
 
 def _follow_up_seconds(value: object) -> int:
@@ -30,6 +33,12 @@ def _follow_up_seconds(value: object) -> int:
     if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= MAX_SECONDS:
         return value
     return DEFAULT_SECONDS
+
+
+def _end_pause_ms(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and MIN_MS <= value <= MAX_MS:
+        return value
+    return DEFAULT_MS
 
 
 def config_dir() -> Path:
@@ -63,6 +72,7 @@ class SettingsStore:
             user_name=user_name if isinstance(user_name, str) else None,
             user_about=user_about if isinstance(user_about, str) else None,
             follow_up_seconds=_follow_up_seconds(data.get("follow_up_seconds")),
+            end_pause_ms=_end_pause_ms(data.get("end_pause_ms")),
         )
 
     def save(self, settings: Settings) -> None:

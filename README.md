@@ -4,7 +4,7 @@
 >
 > Arquitectura técnica: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Diseño de la interfaz: [docs/DISENO.md](docs/DISENO.md). Cómo se escribe el código: [docs/CODIGO.md](docs/CODIGO.md). Latencia y consumo medidos: [docs/MEDICIONES.md](docs/MEDICIONES.md). Flujo de trabajo (ramas, versiones, pruebas): [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Estado: **Fases 1 y 2 en curso (v0.11.1).** Kronos ya ejecuta sus primeras acciones: dice la hora, abre aplicaciones por su nombre y las cierra después de pedirte la confirmación, por voz o con un clic. Conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder. La latencia y el consumo ya se miden (`pnpm engine:measure`); falta decidir el hardware mínimo con esos números. La transcripción pasó de whisper a Parakeet, unas quince veces más rápido; whisper sigue disponible con `KRONOS_STT_MODEL=small`.
+> Estado: **Fases 1 y 2 en curso (v0.12.0).** Kronos ya ejecuta sus primeras acciones: dice la hora, abre aplicaciones por su nombre y las cierra después de pedirte la confirmación, por voz o con un clic. Conversa por voz: se lo invoca con el atajo o diciendo «Kronos», escucha, piensa con Ollama y responde con Piper. En la configuración se guarda tu nombre y una descripción corta para que te llame por tu nombre. También se elige cuántos segundos sigue escuchando después de responder y cuánto silencio da por terminada tu frase. La latencia y el consumo ya se miden (`pnpm engine:measure`); falta decidir el hardware mínimo con esos números. La transcripción pasó de whisper a Parakeet, unas quince veces más rápido; whisper sigue disponible con `KRONOS_STT_MODEL=small`.
 
 ## La idea
 
@@ -79,6 +79,7 @@ El usuario puede cambiar de proveedor o de modelo cuando quiera. Formas de conex
 
 ### Flujo de conversación
 - Tras responder, el asistente **sigue escuchando unos segundos** para que el usuario conteste sin volver a activarlo. Cuántos se elige en la pestaña Voz de la configuración (8 de fábrica, hasta 60; con 0 no sigue escuchando).
+- El asistente da la frase por terminada después de **un silencio que elige el usuario** en la misma pestaña (1,5 s de fábrica, entre 0,5 y 5). Más largo no corta a quien hace una pausa para pensar, pero cada respuesta tarda eso de más.
 - En el MVP **no se lo puede interrumpir por voz** mientras habla; sí se lo puede cortar con el atajo de teclado.
 - **Errores de transcripción:** el overlay muestra lo que el asistente entendió, así el error se ve al momento. Formas de corregir:
   - Repetir la frase o decir "corrige: ...".
