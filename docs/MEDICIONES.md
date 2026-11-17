@@ -11,6 +11,13 @@ Hay dos formas, y miden lo mismo: cuánto pasa entre que el usuario termina de h
 | `pnpm engine:measure` | Para comparar equipos y modelos. No usa micrófono ni altavoz: genera una pregunta con la voz de Kronos y la pasa por las piezas reales (transcribir → modelo → voz). Repite cinco veces e informa la mediana, más el consumo del motor. Necesita Ollama abierto. |
 | La línea `Tiempos del turno` de la terminal | Para ver una conversación real. El motor la escribe después de cada respuesta: `Tiempos del turno: transcribir 2,24 s · modelo 0,31 s · voz 0,09 s · total 2,64 s.` |
 
+Para comparar qué tan bien entienden los reconocedores con una voz real hay un tercer comando, `pnpm engine:compare-stt`:
+
+1. `pnpm engine:compare-stt grabar` pide doce frases cortas («Sí.», «No.», «Sí, confirmo.», «Abrí el bloc de notas.»…) y las graba con el micrófono, con el mismo detector de voz y la misma pausa de fin de frase que Kronos. Las guarda fuera del repositorio, en `%LOCALAPPDATA%\Kronos\pruebas-voz`. Con `--tomas 2` pide cada frase dos veces.
+2. `pnpm engine:compare-stt comparar` pasa las grabaciones por Parakeet v3, whisper `small` con el español fijo y Scribe v3 de ElevenLabs. Muestra qué entendió cada uno en cada frase y una tabla con aciertos y tiempo por frase. Una frase vale como acertada si coincide sin contar mayúsculas, tildes ni signos.
+
+ElevenLabs corre en la nube y es de pago: las grabaciones salen de la computadora. Solo se usa si la clave está en la variable `ELEVENLABS_API_KEY`; si no está, se compara el resto. Con `--reconocedores parakeet,base` se elige qué comparar.
+
 `pnpm engine:measure` lee los mismos ajustes que el motor. Para probar otra pieza se usa la variable de entorno de siempre, por ejemplo `KRONOS_STT_MODEL=small` (whisper) o `KRONOS_LLM_MODEL=qwen3:4b`.
 
 A los dos totales hay que sumarles el silencio que Kronos espera para dar la frase por terminada: **1,5 s** de fábrica desde la v0.12.0 (antes 0,8 s y 1,2 s). Se elige en la pestaña Voz de la configuración, entre 0,5 y 5 s.
