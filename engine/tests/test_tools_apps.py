@@ -3,7 +3,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from kronos_engine.core.platform import App, Window
+from kronos_engine.core.platform import App, Folder, Window
 from kronos_engine.core.tools import PermissionLevel, ToolError
 from kronos_engine.tools.apps import CloseAppTool, OpenAppTool, app_of, find_app, find_windows
 
@@ -49,6 +49,9 @@ class FakePlatform:
     def open_app(self, app: App) -> None:
         self.opened.append(app)
 
+    def open_folder(self, folder: Folder) -> None:
+        raise AssertionError("Estas acciones no abren carpetas.")
+
 
 def test_encuentra_la_aplicacion_por_su_nombre_exacto() -> None:
     assert find_app("Spotify", APPS) == SPOTIFY
@@ -67,6 +70,14 @@ def test_alcanza_con_una_parte_del_nombre() -> None:
 
 def test_entre_varias_que_coinciden_gana_la_de_nombre_mas_corto() -> None:
     assert find_app("chrome", APPS) == CHROME
+
+
+def test_dos_entradas_de_la_misma_aplicacion_no_son_una_duda() -> None:
+    # «spotif» se parece igual a las dos.
+    twins = [App("Spotify", "Spotify!App"), App("Spotifi", "Spotify!App")]
+
+    assert find_app("spotif", twins) == twins[0]
+    assert find_app("spotif", [twins[0], App("Spotifi", "Otra!App")]) is None
 
 
 def test_tolera_un_error_chico_de_transcripcion() -> None:

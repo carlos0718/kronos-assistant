@@ -6,6 +6,7 @@ import logging
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Any
 
 from kronos_engine.core.platform import App, Platform, Window
@@ -40,7 +41,9 @@ def _alike(word: str, other: str) -> bool:
     return difflib.SequenceMatcher(None, word, other).ratio() >= _TYPO
 
 
-def _candidates(name: str, apps: Sequence[App]) -> list[App]:
+def _candidates(
+    name: str, apps: Sequence[App], ignore: AbstractSet[str] = frozenset()
+) -> list[App]:
     """Las aplicaciones que podrían ser la pedida, de la más probable a la menos."""
     wanted = _normalize(name)
     if not wanted:
@@ -48,7 +51,8 @@ def _candidates(name: str, apps: Sequence[App]) -> list[App]:
     names = {app: _normalize(app.name) for app in apps}
     if exact := [app for app in apps if names[app] == wanted]:
         return exact[:1]
-    words = [word for word in wanted.split() if word not in _ARTICLES] or wanted.split()
+    skip = _ARTICLES | ignore
+    words = [word for word in wanted.split() if word not in skip] or wanted.split()
     # Primero con las palabras tal cual; si no, tolerando un error de transcripción.
     for same in (str.__eq__, _alike):
         partial = [
@@ -62,14 +66,23 @@ def _candidates(name: str, apps: Sequence[App]) -> list[App]:
     return []
 
 
-def find_app(name: str, apps: Sequence[App]) -> App | None:
-    """La aplicación pedida, o `None` si no hay ninguna o no se puede decidir entre varias."""
-    found = _candidates(name, apps)
+def find_app(name: str, apps: Sequence[App], ignore: AbstractSet[str] = frozenset()) -> App | None:
+    """La aplicación pedida, o `None` si no hay ninguna o no se puede decidir entre varias.
+
+    `ignore` son palabras (normalizadas) que se dicen alrededor del nombre y no son parte de él.
+    """
+    found = _candidates(name, apps, ignore)
     if not found:
         return None
-    if len(found) > 1 and len(_normalize(found[0].name)) == len(_normalize(found[1].name)):
+    first, second = found[0], found[1] if len(found) > 1 else None
+    # Dos nombres de lo mismo no son una duda: «Videos» y «Vídeos».
+    if (
+        second
+        and second.id != first.id
+        and len(_normalize(first.name)) == len(_normalize(second.name))
+    ):
         return None
-    return found[0]
+    return first
 
 
 def app_of(title: str) -> str:

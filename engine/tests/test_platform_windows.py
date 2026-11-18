@@ -1,5 +1,5 @@
-from kronos_engine.core.platform import App
-from kronos_engine.platform.windows.apps import parse_apps
+from kronos_engine.core.platform import App, Folder
+from kronos_engine.platform.windows.apps import SHELL_FOLDERS, parse_apps
 
 
 def test_lee_la_lista_de_aplicaciones_del_menu_inicio() -> None:
@@ -27,3 +27,8 @@ def test_saltea_las_entradas_sin_nombre_o_sin_identificador() -> None:
 def test_una_salida_vacia_o_rota_es_una_lista_vacia() -> None:
     assert parse_apps("") == []
     assert parse_apps("Get-StartApps: no se reconoce") == []
+
+
+def test_sabe_abrir_todas_las_carpetas_del_usuario() -> None:
+    assert set(SHELL_FOLDERS) == set(Folder)
+    assert all(name.startswith("shell:") for name in SHELL_FOLDERS.values())

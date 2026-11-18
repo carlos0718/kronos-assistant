@@ -1,4 +1,4 @@
-"""Windows: las aplicaciones del menú Inicio y las ventanas abiertas."""
+"""Windows: las aplicaciones del menú Inicio, las carpetas del usuario y las ventanas abiertas."""
 
 import json
 import logging
@@ -6,7 +6,7 @@ import subprocess
 import threading
 import time
 
-from kronos_engine.core.platform import App, Window
+from kronos_engine.core.platform import App, Folder, Window
 from kronos_engine.platform.windows import open_windows
 
 log = logging.getLogger(__name__)
@@ -22,6 +22,18 @@ _LIST_TIMEOUT = 20
 _CACHE_SECONDS = 300
 # Sin esto, cada llamada abre una ventana de consola por un instante. Solo existe en Windows.
 _NO_WINDOW: int = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+# Cómo llama el explorador a cada carpeta. Así se abre la de verdad aunque
+# el usuario la haya movido, por ejemplo a OneDrive.
+SHELL_FOLDERS = {
+    Folder.DESKTOP: "shell:Desktop",
+    Folder.DOCUMENTS: "shell:Personal",
+    Folder.DOWNLOADS: "shell:Downloads",
+    Folder.PICTURES: "shell:My Pictures",
+    Folder.MUSIC: "shell:My Music",
+    Folder.VIDEOS: "shell:My Video",
+    Folder.HOME: "shell:Profile",
+}
 
 
 def parse_apps(output: str) -> list[App]:
@@ -83,6 +95,9 @@ class WindowsPlatform:
         # El explorador abre cualquier entrada del menú Inicio por su identificador.
         # Va como un solo argumento, sin pasar por un intérprete de comandos.
         subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{app.id}"], creationflags=_NO_WINDOW)
+
+    def open_folder(self, folder: Folder) -> None:
+        subprocess.Popen(["explorer.exe", SHELL_FOLDERS[folder]], creationflags=_NO_WINDOW)
 
     def windows(self) -> list[Window]:
         return open_windows.list_windows()
