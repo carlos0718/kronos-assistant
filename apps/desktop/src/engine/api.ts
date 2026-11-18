@@ -83,3 +83,24 @@ export async function getEndPause(connection: Connection): Promise<number> {
 export async function setEndPause(connection: Connection, milliseconds: number): Promise<void> {
   await request(connection, "/end-pause", { method: "PUT", body: JSON.stringify({ milliseconds }) });
 }
+
+/** Las carpetas que todo usuario tiene, como las nombra el motor (`core/platform.py`). */
+export type KnownFolder = "desktop" | "documents" | "downloads" | "pictures" | "music" | "videos" | "home";
+
+/** Dónde puede mirar Kronos: fuera de estas carpetas no busca ni abre nada. */
+export type FolderAccess = {
+  known: KnownFolder[];
+  /** Otras carpetas que sumó el usuario, con su ruta completa. */
+  extra: string[];
+  /** Cuántos niveles adentro busca lo que no está justo ahí. */
+  depth: number;
+};
+
+export async function getFolderAccess(connection: Connection): Promise<FolderAccess> {
+  return (await request(connection, "/folder-access")).json();
+}
+
+/** Falla con el motivo, para mostrarlo, si una carpeta no existe. */
+export async function setFolderAccess(connection: Connection, access: FolderAccess): Promise<void> {
+  await request(connection, "/folder-access", { method: "PUT", body: JSON.stringify(access) });
+}

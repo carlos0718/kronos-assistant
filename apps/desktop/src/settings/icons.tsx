@@ -8,6 +8,7 @@ const PATHS = {
     </>
   ),
   stop: <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />,
+  folder: <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />,
   minimize: <path d="M6 12h12" />,
   close: <path d="m6.5 6.5 11 11M17.5 6.5l-11 11" />,
 };

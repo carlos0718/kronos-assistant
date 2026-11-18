@@ -24,6 +24,8 @@ pub fn run() {
                 })
                 .build(),
         )
+        // El selector de carpetas de la pestaña Permisos.
+        .plugin(tauri_plugin_dialog::init())
         .manage(engine::Engine::default())
         .invoke_handler(tauri::generate_handler![
             engine::engine_status,

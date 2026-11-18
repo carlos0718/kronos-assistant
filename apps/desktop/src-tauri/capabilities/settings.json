@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings",
+  "description": "Permisos que solo necesita la ventana de configuración: elegir una carpeta en la pestaña Permisos",
+  "windows": ["settings"],
+  "permissions": ["dialog:allow-open"]
+}
