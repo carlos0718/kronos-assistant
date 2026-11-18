@@ -187,6 +187,37 @@ def test_con_la_espera_en_cero_termina_despues_de_responder() -> None:
     ]
 
 
+def test_si_el_usuario_se_despide_responde_y_termina_sin_volver_a_escuchar() -> None:
+    async def scenario() -> tuple[list[tuple[str, str]], list[float | None], list[str]]:
+        listener = FakeListener("Hola", "Gracias, chau.", "no debería oírse")
+        responder = FakeResponder(["Hola."])
+        conversation, recorder = build(listener=listener, responder=responder, follow_up=lambda: 20)
+        await conversation.activate()
+        await conversation.wait()
+        return recorder.events, listener.waits, responder.asked
+
+    events, waits, asked = asyncio.run(scenario())
+    # El modelo contesta la despedida, pero el micrófono no se vuelve a abrir.
+    assert asked == ["Hola", "Gracias, chau."]
+    assert waits == [None, 20]
+    assert events[-3:] == [
+        ("state_changed", "speaking"),
+        ("assistant_delta", "Hola."),
+        ("state_changed", "idle"),
+    ]
+
+
+def test_una_despedida_al_llamarlo_por_su_nombre_tambien_termina() -> None:
+    async def scenario() -> list[float | None]:
+        listener = FakeListener("no debería oírse")
+        conversation, _ = build(listener=listener, responder=FakeResponder(["Chau."]))
+        await conversation.activate("chau")
+        await conversation.wait()
+        return listener.waits
+
+    assert asyncio.run(scenario()) == []
+
+
 def test_registra_cuanto_tardo_cada_paso_del_turno(caplog: pytest.LogCaptureFixture) -> None:
     async def scenario() -> None:
         # Un reloj que avanza un segundo cada vez que se lo consulta.
