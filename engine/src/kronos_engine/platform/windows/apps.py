@@ -2,12 +2,16 @@
 
 import json
 import logging
+import os
 import subprocess
+import sys
 import threading
 import time
+from collections.abc import Callable, Sequence, Set
+from pathlib import Path
 
 from kronos_engine.core.platform import App, Folder, Window
-from kronos_engine.platform.windows import open_windows
+from kronos_engine.platform.windows import known_folders, open_windows
 
 log = logging.getLogger(__name__)
 
@@ -23,17 +27,26 @@ _CACHE_SECONDS = 300
 # Sin esto, cada llamada abre una ventana de consola por un instante. Solo existe en Windows.
 _NO_WINDOW: int = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-# Cómo llama el explorador a cada carpeta. Así se abre la de verdad aunque
-# el usuario la haya movido, por ejemplo a OneDrive.
-SHELL_FOLDERS = {
-    Folder.DESKTOP: "shell:Desktop",
-    Folder.DOCUMENTS: "shell:Personal",
-    Folder.DOWNLOADS: "shell:Downloads",
-    Folder.PICTURES: "shell:My Pictures",
-    Folder.MUSIC: "shell:My Music",
-    Folder.VIDEOS: "shell:My Video",
-    Folder.HOME: "shell:Profile",
-}
+# Cuánto se espera a que el explorador muestre la carpeta, y cada cuánto se mira.
+_FOLDER_WAIT = 3.0
+_FOLDER_STEP = 0.1
+
+
+def new_window(
+    before: Set[int],
+    windows: Callable[[], Sequence[Window]],
+    timeout: float = _FOLDER_WAIT,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Window | None:
+    """La primera ventana que aparece y no estaba en `before`, o `None` si no aparece a tiempo."""
+    waited = 0.0
+    while True:
+        if fresh := [window for window in windows() if window.id not in before]:
+            return fresh[0]
+        if waited >= timeout:
+            return None
+        sleep(_FOLDER_STEP)
+        waited += _FOLDER_STEP
 
 
 def parse_apps(output: str) -> list[App]:
@@ -96,8 +109,22 @@ class WindowsPlatform:
         # Va como un solo argumento, sin pasar por un intérprete de comandos.
         subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{app.id}"], creationflags=_NO_WINDOW)
 
-    def open_folder(self, folder: Folder) -> None:
-        subprocess.Popen(["explorer.exe", SHELL_FOLDERS[folder]], creationflags=_NO_WINDOW)
+    def folder_path(self, folder: Folder) -> Path:
+        return known_folders.known_folder(folder)
+
+    def open_path(self, path: Path) -> None:
+        # Abrir un archivo lo ejecutaría: solo se abren carpetas.
+        if sys.platform != "win32" or not path.is_dir():
+            return
+        before = {window.id for window in self.windows()}
+        # Como un doble clic: sin pasar la ruta por un intérprete de comandos.
+        os.startfile(path)
+        # La ventana la crea el explorador que ya estaba corriendo, y Windows no
+        # la deja pasar al frente: queda atrás, parpadeando en la barra de
+        # tareas, y una barra que se oculta sola no se oculta. Se la trae al
+        # frente como si el usuario la hubiera tocado.
+        if window := new_window(before, self.windows):
+            self.focus_window(window)
 
     def windows(self) -> list[Window]:
         return open_windows.list_windows()

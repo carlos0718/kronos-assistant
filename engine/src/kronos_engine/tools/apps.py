@@ -30,14 +30,14 @@ _TITLE_SEPARATOR = re.compile(r"\s+[-\u2013\u2014|]\s+")
 _OWN_TITLE = "kronos"
 
 
-def _normalize(text: str) -> str:
+def normalize(text: str) -> str:
     """Minúsculas, sin acentos ni signos: así llega lo que se transcribe de la voz."""
     plain = unicodedata.normalize("NFKD", text.casefold())
     plain = "".join(char for char in plain if not unicodedata.combining(char))
     return " ".join(re.findall(r"[a-z0-9]+", plain))
 
 
-def _alike(word: str, other: str) -> bool:
+def alike(word: str, other: str) -> bool:
     return difflib.SequenceMatcher(None, word, other).ratio() >= _TYPO
 
 
@@ -45,16 +45,16 @@ def _candidates(
     name: str, apps: Sequence[App], ignore: AbstractSet[str] = frozenset()
 ) -> list[App]:
     """Las aplicaciones que podrían ser la pedida, de la más probable a la menos."""
-    wanted = _normalize(name)
+    wanted = normalize(name)
     if not wanted:
         return []
-    names = {app: _normalize(app.name) for app in apps}
+    names = {app: normalize(app.name) for app in apps}
     if exact := [app for app in apps if names[app] == wanted]:
         return exact[:1]
     skip = _ARTICLES | ignore
     words = [word for word in wanted.split() if word not in skip] or wanted.split()
     # Primero con las palabras tal cual; si no, tolerando un error de transcripción.
-    for same in (str.__eq__, _alike):
+    for same in (str.__eq__, alike):
         partial = [
             app
             for app in apps
@@ -79,7 +79,7 @@ def find_app(name: str, apps: Sequence[App], ignore: AbstractSet[str] = frozense
     if (
         second
         and second.id != first.id
-        and len(_normalize(first.name)) == len(_normalize(second.name))
+        and len(normalize(first.name)) == len(normalize(second.name))
     ):
         return None
     return first
@@ -94,7 +94,7 @@ def find_windows(name: str, windows: Sequence[Window]) -> list[Window]:
     """Las ventanas de la aplicación pedida. Vacío si no está abierta o no se puede decidir."""
     by_app: dict[str, list[Window]] = {}
     for window in windows:
-        if not _normalize(window.title).startswith(_OWN_TITLE):
+        if not normalize(window.title).startswith(_OWN_TITLE):
             by_app.setdefault(app_of(window.title), []).append(window)
     # Se busca por el nombre de la aplicación, no por todo el título: «notas»
     # no cierra el navegador porque una pestaña se llame «Notas de la reunión».
@@ -109,9 +109,9 @@ def _name(arguments: Mapping[str, Any]) -> str:
 def _suggestions(name: str, apps: Sequence[App]) -> list[str]:
     if found := _candidates(name, apps):
         return [app.name for app in found[:_MAX_SUGGESTIONS]]
-    by_name = {_normalize(app.name): app.name for app in apps}
+    by_name = {normalize(app.name): app.name for app in apps}
     close = difflib.get_close_matches(
-        _normalize(name), list(by_name), n=_MAX_SUGGESTIONS, cutoff=_SIMILAR
+        normalize(name), list(by_name), n=_MAX_SUGGESTIONS, cutoff=_SIMILAR
     )
     return [by_name[match] for match in close]
 

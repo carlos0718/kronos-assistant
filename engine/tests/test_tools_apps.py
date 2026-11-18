@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
 
@@ -49,7 +50,10 @@ class FakePlatform:
     def open_app(self, app: App) -> None:
         self.opened.append(app)
 
-    def open_folder(self, folder: Folder) -> None:
+    def folder_path(self, folder: Folder) -> Path:
+        raise AssertionError("Estas acciones no usan carpetas.")
+
+    def open_path(self, path: Path) -> None:
         raise AssertionError("Estas acciones no abren carpetas.")
 
 

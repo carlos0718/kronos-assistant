@@ -6,6 +6,7 @@ Cada sistema la implementa en `platform/` (hoy solo Windows).
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Protocol
 
 
@@ -38,8 +39,12 @@ class Folder(Enum):
 
 
 class Folders(Protocol):
-    def open_folder(self, folder: Folder) -> None:
-        """Abre la carpeta en el explorador de archivos del sistema."""
+    def folder_path(self, folder: Folder) -> Path:
+        """Dónde está la carpeta en el disco de este usuario."""
+        ...
+
+    def open_path(self, path: Path) -> None:
+        """Abre la carpeta en el explorador de archivos del sistema, adelante de todo."""
         ...
 
 
