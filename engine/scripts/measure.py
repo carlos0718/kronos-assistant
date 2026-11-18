@@ -33,7 +33,6 @@ from kronos_engine.voice import FRAME_SAMPLES, SAMPLE_RATE
 from kronos_engine.voice.catalog import DEFAULT_VOICES
 from kronos_engine.voice.endpointing import EndpointConfig
 from kronos_engine.voice.speaker import Speech
-from kronos_engine.voice.tts import PiperTts
 from kronos_engine.voice.vad import SileroVad
 
 # Una pregunta que el modelo contesta sin herramientas, en dos o tres frases.
@@ -162,7 +161,8 @@ async def run(rounds: int) -> None:
     process = psutil.Process()
 
     print(f"Midiendo {rounds} rondas; tarda alrededor de un minuto…\n", flush=True)
-    tts = PiperTts(voice)
+    # Con una voz de ElevenLabs también mide la voz en la nube.
+    tts = pipeline.tts_for(voice)
     with measured() as tts_load:
         question = to_16k(await tts.synthesize(QUESTIONS[language]))
     stt = pipeline.stt_for(stt_model, language)

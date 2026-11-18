@@ -2,6 +2,8 @@
 
 import os
 import sys
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -23,9 +25,11 @@ from kronos_engine.core.tools import Tool
 from kronos_engine.core.voices import VoiceControl
 
 if TYPE_CHECKING:
-    from kronos_engine.voice.elevenlabs import ElevenLabsStt
+    from kronos_engine.core.voices import VoiceInfo
+    from kronos_engine.voice.elevenlabs import ElevenLabsStt, ElevenLabsTts
     from kronos_engine.voice.parakeet import ParakeetStt
     from kronos_engine.voice.stt import WhisperStt
+    from kronos_engine.voice.tts import PiperTts
 
 # KRONOS_PIPELINE=demo usa las piezas simuladas, sin micrófono ni modelos.
 PIPELINE_ENV = "KRONOS_PIPELINE"
@@ -79,6 +83,46 @@ def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt | ElevenLabsS
     return WhisperStt(name, language=language)
 
 
+def tts_for(voice: str) -> "PiperTts | ElevenLabsTts":
+    """El motor de voz que corresponde a una voz: ElevenLabs si su id lo dice, si no Piper."""
+    from kronos_engine.voice.elevenlabs import (
+        KEY_ENV,
+        TTS_MODEL,
+        TTS_MODEL_ENV,
+        ElevenLabsTts,
+        is_elevenlabs_voice,
+    )
+    from kronos_engine.voice.tts import PiperTts
+
+    if is_elevenlabs_voice(voice):
+        model = os.environ.get(TTS_MODEL_ENV, TTS_MODEL)
+        return ElevenLabsTts(os.environ.get(KEY_ENV, ""), voice, model=model)
+    return PiperTts(voice)
+
+
+def starting_voice(saved: str | None, default: str, has_key: bool) -> str:
+    """La voz con la que arranca: la elegida, salvo que sea de ElevenLabs y falte la clave."""
+    from kronos_engine.voice.elevenlabs import is_elevenlabs_voice
+
+    if not saved or (is_elevenlabs_voice(saved) and not has_key):
+        return default
+    return saved
+
+
+def voice_catalog() -> "Callable[[], list[VoiceInfo]]":
+    """Las voces para elegir: las de Piper, y las de ElevenLabs si está la clave."""
+    from kronos_engine.voice.catalog import VOICES
+    from kronos_engine.voice.elevenlabs import KEY_ENV, ElevenLabsCatalog
+
+    key = os.environ.get(KEY_ENV, "")
+    if not key:
+        return lambda: list(VOICES)
+    cloud = ElevenLabsCatalog(key)
+    # Se piden al arrancar, para que elegir una no espere a ElevenLabs.
+    threading.Thread(target=cloud.voices, daemon=True).start()
+    return lambda: [*VOICES, *cloud.voices()]
+
+
 def available_tools() -> list[Tool]:
     """Las acciones que Kronos puede ejecutar en este sistema."""
     from kronos_engine.tools.apps import CloseAppTool, OpenAppTool
@@ -115,13 +159,13 @@ def build() -> Parts:
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
     from kronos_engine.permissions.gate import PermissionGate
     from kronos_engine.voice.catalog import DEFAULT_VOICES
+    from kronos_engine.voice.elevenlabs import KEY_ENV
     from kronos_engine.voice.listener import VoiceListener
     from kronos_engine.voice.microphone import open_microphone
     from kronos_engine.voice.playback import play
     from kronos_engine.voice.speaker import VoiceSpeaker
-    from kronos_engine.voice.tts import PiperTts
     from kronos_engine.voice.vad import SileroVad
-    from kronos_engine.voice.voices import PiperVoices
+    from kronos_engine.voice.voices import RoutedTts, SelectableVoices
     from kronos_engine.voice.wake import WhisperWakeWord
 
     language = os.environ.get(LANGUAGE_ENV, "es")
@@ -132,7 +176,12 @@ def build() -> Parts:
     # Los tres modelos se cargan mientras el usuario todavía no habló.
     stt = stt_for(os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL), language)
     stt.preload()
-    tts = PiperTts(settings.voice or os.environ.get(VOICE_ENV) or default_voice)
+    voice = starting_voice(
+        settings.voice or os.environ.get(VOICE_ENV),
+        default_voice,
+        has_key=bool(os.environ.get(KEY_ENV)),
+    )
+    tts = RoutedTts(voice, tts_for)
     tts.preload()
     model = OllamaProvider(
         os.environ.get(MODEL_ENV, DEFAULT_MODEL),
@@ -172,5 +221,7 @@ def build() -> Parts:
         enabled=settings.wake_word,
         remember=lambda enabled: store.update(wake_word=enabled),
     )
-    voices = PiperVoices(tts, PiperTts, play, lambda voice: store.update(voice=voice))
+    voices = SelectableVoices(
+        tts, tts_for, play, lambda voice: store.update(voice=voice), catalog=voice_catalog()
+    )
     return Parts(pipeline, voices, standby, profile, StoredFollowUp(store), end_pause)

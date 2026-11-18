@@ -13,11 +13,32 @@ import {
 import { Group, Row, Slider, Value } from "../controls";
 import "./VoiceTab.css";
 
-const LANGUAGES = [
-  { id: "es", title: "Voces en español" },
-  { id: "en", title: "Voces en inglés" },
-] as const;
+// Las voces de ElevenLabs van primero y aparte: hablan cualquier idioma y son de pago.
+const GROUPS = [
+  {
+    key: "elevenlabs",
+    title: "Voces de ElevenLabs",
+    hint: "en la nube y de pago; se suman desde tu cuenta de ElevenLabs",
+    matches: (voice: Voice) => voice.provider === "elevenlabs",
+  },
+  {
+    key: "es",
+    title: "Voces en español",
+    hint: "la primera vez que probás una voz, se descarga",
+    matches: (voice: Voice) => voice.provider === "piper" && voice.language === "es",
+  },
+  {
+    key: "en",
+    title: "Voces en inglés",
+    hint: "la primera vez que probás una voz, se descarga",
+    matches: (voice: Voice) => voice.provider === "piper" && voice.language === "en",
+  },
+];
 const GENDER_LABEL = { female: "Mujer", male: "Hombre" };
+
+function describe(voice: Voice): string {
+  return [voice.gender && GENDER_LABEL[voice.gender], voice.region].filter(Boolean).join(" · ");
+}
 // El mismo tope que valida el motor (`core/follow_up.py`).
 const FOLLOW_UP_MAX = 60;
 // El mismo rango que valida el motor (`core/end_pause.py`), en segundos.
@@ -116,13 +137,13 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
         </Group>
       )}
 
-      {LANGUAGES.map(({ id, title }) => {
-        const inLanguage = voices.filter((voice) => voice.language === id);
-        if (!inLanguage.length) return null;
+      {GROUPS.map(({ key, title, hint, matches }) => {
+        const inGroup = voices.filter(matches);
+        if (!inGroup.length) return null;
         return (
-          <Group key={id} title={title} hint="la primera vez que probás una voz, se descarga">
-            {inLanguage.map((voice) => (
-              <Row key={voice.id} label={voice.name} text={`${GENDER_LABEL[voice.gender]} · ${voice.region}`}>
+          <Group key={key} title={title} hint={hint}>
+            {inGroup.map((voice) => (
+              <Row key={voice.id} label={voice.name} text={describe(voice)}>
                 <span className="voice-actions">
                   <button
                     type="button"
