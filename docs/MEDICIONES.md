@@ -11,6 +11,13 @@ Hay dos formas, y miden lo mismo: cuánto pasa entre que el usuario termina de h
 | `pnpm engine:measure` | Para comparar equipos y modelos. No usa micrófono ni altavoz: genera una pregunta con la voz de Kronos y la pasa por las piezas reales (transcribir → modelo → voz). Repite cinco veces e informa la mediana, más el consumo del motor. Necesita Ollama abierto. |
 | La línea `Tiempos del turno` de la terminal | Para ver una conversación real. El motor la escribe después de cada respuesta: `Tiempos del turno: transcribir 2,24 s · modelo 0,31 s · voz 0,09 s · total 2,64 s.` |
 
+Para comparar qué tan bien entienden los reconocedores con una voz real hay un tercer comando, `pnpm engine:compare-stt`:
+
+1. `pnpm engine:compare-stt grabar` pide doce frases cortas («Sí.», «No.», «Sí, confirmo.», «Abrí el bloc de notas.»…) y las graba con el micrófono, con el mismo detector de voz y la misma pausa de fin de frase que Kronos. Las guarda fuera del repositorio, en `%LOCALAPPDATA%\Kronos\pruebas-voz`. Con `--tomas 2` pide cada frase dos veces.
+2. `pnpm engine:compare-stt comparar` pasa las grabaciones por Parakeet v3, whisper `small` con el español fijo y Scribe v3 de ElevenLabs. Muestra qué entendió cada uno en cada frase y una tabla con aciertos y tiempo por frase. Una frase vale como acertada si coincide sin contar mayúsculas, tildes ni signos.
+
+ElevenLabs corre en la nube y es de pago: las grabaciones salen de la computadora. Solo se usa si está la clave, en la variable `ELEVENLABS_API_KEY` o en un archivo `.env` en la raíz del proyecto (copia de `.env.example`, que no se sube al repositorio); si no está, se compara el resto. Con `--reconocedores parakeet,base` se elige qué comparar.
+
 `pnpm engine:measure` lee los mismos ajustes que el motor. Para probar otra pieza se usa la variable de entorno de siempre, por ejemplo `KRONOS_STT_MODEL=small` (whisper) o `KRONOS_LLM_MODEL=qwen3:4b`.
 
 A los dos totales hay que sumarles el silencio que Kronos espera para dar la frase por terminada: **1,5 s** de fábrica desde la v0.12.0 (antes 0,8 s y 1,2 s). Se elige en la pestaña Voz de la configuración, entre 0,5 y 5 s.
@@ -121,10 +128,26 @@ En esa prueba un turno quedó sin respuesta: pasaron 29 s entre la frase y la si
 
 Para ver qué texto se oyó en una prueba así, el motor se arranca con `KRONOS_DEBUG=1`. De fábrica solo se anota cuántos caracteres.
 
+## Prueba con micrófono del 17 nov. 2026: ElevenLabs
+
+Con la v0.13.0 se probó Scribe v3 de ElevenLabs como reconocedor de todo el motor (conversación y palabra de activación), con `KRONOS_STT_MODEL=elevenlabs`. Fueron cuatro minutos y 13 turnos en el mismo equipo, según la línea `Tiempos del turno`:
+
+| Paso | Mediana | Mínimo | Máximo |
+|---|---|---|---|
+| Transcribir (ElevenLabs) | 1,21 s | 0,92 s | 1,94 s |
+| Modelo: primera frase | 4,87 s | 0,79 s | 7,79 s |
+| Voz: primera frase | 0,13 s | 0,06 s | 0,22 s |
+| **Total hasta que empieza a hablar** | **6,31 s** | 2,49 s | 8,87 s |
+
+- **Quien lo usó dijo que le entendió todo.** Hubo acciones de abrir y cerrar aplicaciones, traer al frente una ya abierta y decir la hora; la confirmación por voz salió al primer intento.
+- **Transcribir tarda unas ocho veces más que con Parakeet** (1,21 s contra 0,16 s): es el viaje a la nube con la frase entera. El modelo de tiempo real de ElevenLabs (`scribe_v3_live`) transcribe mientras se habla y debería bajarlo; no se probó.
+- **Ese día el modelo de lenguaje fue el paso más lento** (4,87 s de mediana), como en otras pruebas: no es comparable con el 14 nov.
+- Antes, con las doce frases cortas de `pnpm engine:compare-stt` dichas por una voz sintética de Piper, ElevenLabs acertó 5 y Parakeet 3. Los dos fallaron «Kronos» y «bloc de notas» con esa voz.
+
 ## Qué falta medir
 
 - Un turno con acción de punta a punta, con voz real.
-- Cuántas respuestas cortas («sí», «no») pasa Parakeet a otro idioma con voz real.
+- Cuántas respuestas cortas («sí», «no») pasa Parakeet a otro idioma con voz real. `pnpm engine:compare-stt` lo mide con grabaciones del usuario; falta correrlo.
 - Por qué se pierden algunas frases antes de llegar al reconocedor.
 - Un equipo sin placa de video, con el modelo local en el procesador.
 - Un modelo en la nube, cuando exista ese proveedor.

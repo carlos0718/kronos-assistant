@@ -22,6 +22,7 @@ import uvicorn
 
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.api.server import create_app
+from kronos_engine.config.env_file import load_env_file, project_env_file
 from kronos_engine.pipeline import build
 
 HOST = "127.0.0.1"
@@ -85,6 +86,9 @@ def main() -> None:
 
     print(f"{READY_PREFIX} {json.dumps(ready)}", flush=True)
 
+    # En desarrollo, las claves y ajustes del .env de la raíz (ver .env.example).
+    if env_file := project_env_file():
+        load_env_file(env_file)
     parts = build()
     app = create_app(
         token,
