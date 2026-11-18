@@ -6,9 +6,10 @@ import { Orb } from "../shared/Orb";
 import { Confirm } from "./Confirm";
 import "./Overlay.css";
 
-// Tiempo que el overlay queda visible después de volver a inactivo.
-const HIDE_AFTER_IDLE_MS = 2500;
-// Si no hay motor, el aviso de error queda un poco más antes de ocultarse.
+// Tiempo que el overlay queda visible después de volver a inactivo: da para
+// leer la respuesta, también después de una despedida.
+const HIDE_AFTER_IDLE_MS = 5000;
+// Si no hay motor, el aviso de error queda lo mismo antes de ocultarse.
 const HIDE_AFTER_ERROR_MS = 5000;
 // Duración de la animación de salida (coincide con Overlay.css).
 const LEAVE_MS = 250;
