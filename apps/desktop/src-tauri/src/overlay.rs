@@ -9,9 +9,25 @@ pub const LABEL: &str = "overlay";
 const SUMMON_EVENT: &str = "overlay:summon";
 /// Separación entre el overlay y el borde inferior del área de trabajo, en píxeles lógicos.
 const BOTTOM_MARGIN: f64 = 12.0;
+/// Alto de la barra de tareas de Windows 11 cuando aparece, en píxeles lógicos.
+const TASKBAR_HEIGHT: f64 = 48.0;
 
-/// Ubica la ventana abajo al centro del monitor donde está el cursor.
-/// Usa el área de trabajo, así queda por encima de la barra de tareas.
+/// Fila donde empieza la ventana, en píxeles físicos.
+///
+/// El área de trabajo excluye la barra de tareas fija. La que se oculta sola
+/// no reserva lugar (el área llega al borde del monitor), pero al aparecer
+/// quedaría debajo del overlay, que la tapa porque siempre está encima: se le
+/// deja su lugar libre.
+fn top_for(area_bottom: i32, monitor_bottom: i32, height: u32, scale: f64) -> i32 {
+    let mut gap = BOTTOM_MARGIN;
+    if area_bottom >= monitor_bottom {
+        gap += TASKBAR_HEIGHT;
+    }
+    area_bottom - height as i32 - (gap * scale) as i32
+}
+
+/// Ubica la ventana abajo al centro del monitor donde está el cursor, por
+/// encima de la barra de tareas.
 fn place_bottom_center(window: &WebviewWindow) -> tauri::Result<()> {
     let monitor = match window.cursor_position() {
         Ok(cursor) => window.monitor_from_point(cursor.x, cursor.y)?,
@@ -23,9 +39,15 @@ fn place_bottom_center(window: &WebviewWindow) -> tauri::Result<()> {
 
     let area = monitor.work_area();
     let size = window.outer_size()?;
-    let margin = (BOTTOM_MARGIN * monitor.scale_factor()) as i32;
     let x = area.position.x + (area.size.width as i32 - size.width as i32) / 2;
-    let y = area.position.y + area.size.height as i32 - size.height as i32 - margin;
+    let area_bottom = area.position.y + area.size.height as i32;
+    let monitor_bottom = monitor.position().y + monitor.size().height as i32;
+    let y = top_for(
+        area_bottom,
+        monitor_bottom,
+        size.height,
+        monitor.scale_factor(),
+    );
     window.set_position(PhysicalPosition::new(x, y))
 }
 
@@ -63,5 +85,27 @@ pub fn show_overlay(app: AppHandle) {
 pub fn hide_overlay(app: AppHandle) {
     if let Some(window) = app.get_webview_window(LABEL) {
         let _ = window.hide();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::top_for;
+
+    #[test]
+    fn queda_justo_encima_de_una_barra_fija() {
+        // Pantalla de 1152 px con la barra fija de 48 px: el área de trabajo termina en 1104.
+        assert_eq!(top_for(1104, 1152, 320, 1.0), 1104 - 320 - 12);
+    }
+
+    #[test]
+    fn deja_lugar_a_una_barra_que_se_oculta_sola() {
+        // La barra que se oculta sola no reserva lugar, pero al aparecer ocupa 48 px.
+        assert_eq!(top_for(1152, 1152, 320, 1.0), 1152 - 320 - 48 - 12);
+    }
+
+    #[test]
+    fn el_margen_crece_con_la_escala() {
+        assert_eq!(top_for(1728, 1728, 480, 1.5), 1728 - 480 - 90);
     }
 }
