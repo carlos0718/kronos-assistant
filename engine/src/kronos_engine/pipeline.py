@@ -127,6 +127,7 @@ def available_tools() -> list[Tool]:
     """Las acciones que Kronos puede ejecutar en este sistema."""
     from kronos_engine.tools.apps import CloseAppTool, OpenAppTool
     from kronos_engine.tools.clock import CurrentTimeTool
+    from kronos_engine.tools.folders import OpenFolderTool
 
     tools: list[Tool] = [CurrentTimeTool()]
     if sys.platform == "win32":
@@ -134,7 +135,7 @@ def available_tools() -> list[Tool]:
 
         platform = WindowsPlatform()
         platform.preload()
-        tools += [OpenAppTool(platform), CloseAppTool(platform)]
+        tools += [OpenAppTool(platform), CloseAppTool(platform), OpenFolderTool(platform)]
     return tools
 
 

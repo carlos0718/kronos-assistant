@@ -5,6 +5,8 @@ Cada sistema la implementa en `platform/` (hoy solo Windows).
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
 from typing import Protocol
 
 
@@ -24,7 +26,29 @@ class Window:
     id: int  # Con qué la identifica el sistema.
 
 
-class Platform(Protocol):
+class Folder(Enum):
+    """Las carpetas que todo usuario tiene, estén donde estén en el disco."""
+
+    DESKTOP = "desktop"
+    DOCUMENTS = "documents"
+    DOWNLOADS = "downloads"
+    PICTURES = "pictures"
+    MUSIC = "music"
+    VIDEOS = "videos"
+    HOME = "home"  # La carpeta personal, la que contiene a las demás.
+
+
+class Folders(Protocol):
+    def folder_path(self, folder: Folder) -> Path:
+        """Dónde está la carpeta en el disco de este usuario."""
+        ...
+
+    def open_path(self, path: Path) -> None:
+        """Abre la carpeta en el explorador de archivos del sistema, adelante de todo."""
+        ...
+
+
+class Platform(Folders, Protocol):
     def apps(self) -> Sequence[App]:
         """Las aplicaciones instaladas que el usuario puede abrir."""
         ...
