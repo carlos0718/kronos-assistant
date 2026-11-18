@@ -14,6 +14,7 @@ from typing import Any, Protocol
 
 from kronos_engine.core.approval import ApprovalDesk
 from kronos_engine.core.confirming import Confirmations
+from kronos_engine.core.farewell import is_farewell
 from kronos_engine.core.protocol import AssistantState, ServerMessage
 from kronos_engine.core.sentences import SentenceSplitter
 from kronos_engine.core.speaking import SpokenReply
@@ -157,7 +158,7 @@ class Conversation:
             # la que eligió el usuario.
             wait_seconds: float | None = None
             # Después de responder vuelve a escuchar, por si el usuario sigue.
-            # La conversación termina cuando nadie habla.
+            # La conversación termina cuando nadie habla o el usuario se despide.
             while text is not None:
                 if text:
                     self._timer.mark(Step.TRANSCRIBED)
@@ -168,6 +169,9 @@ class Conversation:
                     await self._reply(text)
                     if summary := self._timer.summary():
                         log.info("Tiempos del turno: %s.", summary)
+                    if is_farewell(text):
+                        log.info("El usuario se despidió; termina la conversación.")
+                        break
                     if self._follow_up:
                         wait_seconds = self._follow_up()
                 else:
