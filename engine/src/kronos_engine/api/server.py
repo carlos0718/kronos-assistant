@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from kronos_engine import PROTOCOL_VERSION, __version__
 from kronos_engine.api.end_pause import end_pause_router
+from kronos_engine.api.folder_access import folder_access_router
 from kronos_engine.api.follow_up import follow_up_router
 from kronos_engine.api.hub import Hub, message
 from kronos_engine.api.profile import profile_router
@@ -20,6 +21,7 @@ from kronos_engine.api.wake import wake_router
 from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.demo import (
     DemoEndPause,
+    DemoFolderAccess,
     DemoFollowUp,
     DemoProfile,
     DemoVoices,
@@ -27,6 +29,7 @@ from kronos_engine.core.demo import (
     demo_pipeline,
 )
 from kronos_engine.core.end_pause import EndPauseControl
+from kronos_engine.core.folder_access import FolderAccessControl
 from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.protocol import ServerMessage
@@ -55,6 +58,7 @@ def create_app(
     profile: ProfileControl | None = None,
     follow_up: FollowUpControl | None = None,
     end_pause: EndPauseControl | None = None,
+    folder_access: FolderAccessControl | None = None,
 ) -> FastAPI:
     """Crea el servidor. Las piezas que no se le pasan son las simuladas."""
     follow_up = follow_up or DemoFollowUp()
@@ -86,6 +90,7 @@ def create_app(
     app.include_router(profile_router(profile or DemoProfile(), require_token))
     app.include_router(follow_up_router(follow_up, require_token))
     app.include_router(end_pause_router(end_pause or DemoEndPause(), require_token))
+    app.include_router(folder_access_router(folder_access or DemoFolderAccess(), require_token))
 
     @app.get("/health", dependencies=[Depends(require_token)])
     def health() -> dict[str, Any]:

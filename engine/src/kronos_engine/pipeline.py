@@ -8,9 +8,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from kronos_engine.core.approval import ApprovalDesk
+from kronos_engine.core.choosing import Chooser
 from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.demo import (
     DemoEndPause,
+    DemoFolderAccess,
     DemoFollowUp,
     DemoProfile,
     DemoVoices,
@@ -18,6 +20,7 @@ from kronos_engine.core.demo import (
     demo_pipeline,
 )
 from kronos_engine.core.end_pause import EndPauseControl
+from kronos_engine.core.folder_access import FolderAccess, FolderAccessControl
 from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
@@ -66,6 +69,7 @@ class Parts:
     profile: ProfileControl
     follow_up: FollowUpControl
     end_pause: EndPauseControl
+    folder_access: FolderAccessControl
 
 
 def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt | ElevenLabsStt":
@@ -123,8 +127,14 @@ def voice_catalog() -> "Callable[[], list[VoiceInfo]]":
     return lambda: [*VOICES, *cloud.voices()]
 
 
-def available_tools() -> list[Tool]:
-    """Las acciones que Kronos puede ejecutar en este sistema."""
+def available_tools(
+    folder_access: Callable[[], FolderAccess] = FolderAccess, chooser: Chooser | None = None
+) -> list[Tool]:
+    """Las acciones que Kronos puede ejecutar en este sistema.
+
+    `folder_access` dice qué carpetas puede mirar; se lee en cada pedido. `chooser`
+    elige por el significado lo que no se encuentra por las palabras.
+    """
     from kronos_engine.tools.apps import CloseAppTool, OpenAppTool
     from kronos_engine.tools.clock import CurrentTimeTool
     from kronos_engine.tools.folders import OpenFolderTool
@@ -135,7 +145,11 @@ def available_tools() -> list[Tool]:
 
         platform = WindowsPlatform()
         platform.preload()
-        tools += [OpenAppTool(platform), CloseAppTool(platform), OpenFolderTool(platform)]
+        tools += [
+            OpenAppTool(platform),
+            CloseAppTool(platform),
+            OpenFolderTool(platform, folder_access, chooser),
+        ]
     return tools
 
 
@@ -148,12 +162,15 @@ def build() -> Parts:
             DemoProfile(),
             DemoFollowUp(),
             DemoEndPause(),
+            DemoFolderAccess(),
         )
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
+    from kronos_engine.agent.chooser import ModelChooser
     from kronos_engine.agent.instructions import instructions_for
     from kronos_engine.agent.responder import AgentResponder
     from kronos_engine.config.end_pause import StoredEndPause
+    from kronos_engine.config.folder_access import StoredFolderAccess
     from kronos_engine.config.follow_up import StoredFollowUp
     from kronos_engine.config.profile import StoredProfile
     from kronos_engine.config.settings import SettingsStore
@@ -192,10 +209,11 @@ def build() -> Parts:
 
     profile = StoredProfile(store)
     end_pause = StoredEndPause(store)
+    folder_access = StoredFolderAccess(store)
     # El modelo propone las acciones; el control de permisos decide si se
     # ejecutan y, para las delicadas, le pregunta al usuario.
     approvals = ApprovalDesk()
-    tools = PermissionGate(available_tools(), approvals)
+    tools = PermissionGate(available_tools(folder_access.get, ModelChooser(model)), approvals)
 
     def current_instructions() -> str:
         # Se lee en cada respuesta: el usuario puede cambiar su perfil sin reiniciar.
@@ -225,4 +243,6 @@ def build() -> Parts:
     voices = SelectableVoices(
         tts, tts_for, play, lambda voice: store.update(voice=voice), catalog=voice_catalog()
     )
-    return Parts(pipeline, voices, standby, profile, StoredFollowUp(store), end_pause)
+    return Parts(
+        pipeline, voices, standby, profile, StoredFollowUp(store), end_pause, folder_access
+    )
