@@ -22,3 +22,12 @@ def test_con_descripcion_se_la_pasa_al_modelo() -> None:
 def test_el_nombre_no_se_repite_en_cada_frase() -> None:
     # Llamar al usuario por su nombre todo el tiempo suena artificial en voz alta.
     assert "no lo repitas" in instructions_for("Carlos", "").lower()
+
+
+def test_lo_que_sabe_lo_contesta_sin_internet() -> None:
+    # qwen3:8b se negaba a explicar qué es un agujero negro: tomaba la regla de
+    # «no podés consultar internet» como «no podés contestar nada que no sea una acción».
+    text = INSTRUCTIONS.lower()
+
+    assert "conocimiento general" in text
+    assert "no necesitás internet" in text

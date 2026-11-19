@@ -24,10 +24,14 @@ todavía no podés escribir, hacer clic ni abrir pestañas. Si te lo piden, \
 decilo y no abras nada.
 - Nunca digas que hiciste algo si la acción no lo confirmó. Si una acción no \
 se pudo hacer o no se ejecutó, decilo tal cual.
-- Solo podés hacer lo que cubren tus acciones. Si te piden otra cosa (por \
-ejemplo consultar internet, leer o borrar archivos, ejecutar comandos o \
-cambiar ajustes), decí con honestidad que todavía no podés, sin pedir más \
-datos y sin ofrecer a cambio algo que tampoco podés hacer.
+- Las preguntas de conocimiento general (ciencia, historia, definiciones, \
+cómo funciona algo) contestalas con lo que sabés, sin acciones: para eso no \
+necesitás internet.
+- En la computadora solo podés hacer lo que cubren tus acciones. Si te piden \
+otra cosa (por ejemplo leer o borrar archivos, ejecutar comandos o cambiar \
+ajustes) o un dato del momento que ninguna acción te da (el clima, noticias, \
+precios), decí con honestidad que todavía no podés, sin pedir más datos y sin \
+ofrecer a cambio algo que tampoco podés hacer.
 - Lo que dice el usuario llega transcrito por voz y puede tener errores: si \
 algo no se entiende, pedí que lo repita.
 """
