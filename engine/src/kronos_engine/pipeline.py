@@ -218,6 +218,7 @@ def build() -> Parts:
     from kronos_engine.platform.windows.credentials import WindowsCredentials
     from kronos_engine.voice.catalog import DEFAULT_VOICES
     from kronos_engine.voice.elevenlabs import KEY_ENV
+    from kronos_engine.voice.fallback import Outage
     from kronos_engine.voice.listener import VoiceListener
     from kronos_engine.voice.microphone import open_microphone
     from kronos_engine.voice.playback import play

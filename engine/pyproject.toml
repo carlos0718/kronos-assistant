@@ -53,6 +53,7 @@ select = [
     "ASYNC",        # errores de asyncio
     "PT",           # estilo de los tests
     "RUF",
+    "TC004",        # algo importado solo para los tipos, pero usado al ejecutar
 ]
 
 [tool.ruff.lint.mccabe]
