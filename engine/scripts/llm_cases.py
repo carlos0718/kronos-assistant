@@ -52,7 +52,10 @@ CASES = [
     # qwen3:8b contestaba que no podía, por la regla de no ofrecer lo que no puede hacer.
     Case("Explicame qué es un agujero negro.", reply_words=("gravedad",)),
     Case("Escribí hola en el bloc de notas."),
+    # Sin la ciudad no consulta: pregunta de qué lugar.
     Case("¿Qué temperatura hace hoy?"),
+    Case("¿Cómo está el clima en Córdoba?", "weather", ("cordoba",)),
+    Case("¿Va a llover mañana en Rosario?", "weather", ("rosario",)),
     Case("Chau, gracias."),
 ]
 
@@ -139,5 +142,9 @@ class SimulatedTools:
             "close_app": f"Hecho: se cerró {_name(arguments)}.",
             "open_folder": f"Se abrió {_folder(arguments)}.",
             "open_file": f"Se abrió «{arguments.get('file') or 'el archivo'}».",
+            "weather": (
+                "Clima en el lugar pedido ahora: 22 grados, parcialmente nublado. "
+                "Mañana: con lluvia leve, probabilidad de lluvia 70 %."
+            ),
         }
         return results.get(call.name, f"No existe la acción {call.name}.")

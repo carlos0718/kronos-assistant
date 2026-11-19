@@ -44,11 +44,11 @@ class CurrentTimeTool:
         tomorrow = (now + timedelta(days=1)).date()
         # Si no se lo pide así, el modelo lee todo aunque solo le pregunten la hora.
         return (
-            f"Hora: {now:%H:%M}. Hoy: {_spoken(now.date())}. Mañana: {_spoken(tomorrow)}. "
+            f"Hora: {now:%H:%M}. Hoy: {spoken_date(now.date())}. Mañana: {spoken_date(tomorrow)}. "
             "Decí solo lo que te preguntaron."
         )
 
 
-def _spoken(day: date) -> str:
+def spoken_date(day: date) -> str:
     """«jueves 19 de noviembre de 2026»."""
     return f"{_DAYS[day.weekday()]} {day.day} de {_MONTHS[day.month - 1]} de {day.year}"
