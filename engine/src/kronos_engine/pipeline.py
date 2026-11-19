@@ -172,6 +172,7 @@ def available_tools(
     """
     from kronos_engine.tools.apps import CloseAppTool, OpenAppTool
     from kronos_engine.tools.clock import CurrentTimeTool
+    from kronos_engine.tools.files import OpenFileTool
     from kronos_engine.tools.folders import OpenFolderTool
 
     tools: list[Tool] = [CurrentTimeTool()]
@@ -184,6 +185,7 @@ def available_tools(
             OpenAppTool(platform),
             CloseAppTool(platform),
             OpenFolderTool(platform, folder_access, chooser),
+            OpenFileTool(platform, folder_access, chooser),
         ]
     return tools
 

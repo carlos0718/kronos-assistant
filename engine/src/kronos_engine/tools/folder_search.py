@@ -230,7 +230,7 @@ def _likeness(wanted: str, folder: str) -> float:
     )
 
 
-def _similar(name: str, paths: Sequence[Path]) -> list[int]:
+def similar(name: str, paths: Sequence[Path]) -> list[int]:
     """Las posiciones de las carpetas más parecidas en las letras, la más parecida primero.
 
     Cada palabra pedida trae sus mejores: si no, en «el proyecto del cine» las muchas
@@ -266,10 +266,10 @@ def closest(name: str, bases: Sequence[Path], scope: Scope = _EVERYWHERE) -> lis
                 if (key := path_key(path)) not in seen:
                     seen.add(key)
                     found.append((depth, path))
-    similar = _similar(name, [path for _, path in found])
-    taken = set(similar)
+    alike_names = similar(name, [path for _, path in found])
+    taken = set(alike_names)
     by_depth = sorted(
         (index for index in range(len(found)) if index not in taken),
         key=lambda index: found[index][0],
     )
-    return [found[index][1] for index in [*similar, *by_depth][:_MAX_CANDIDATES]]
+    return [found[index][1] for index in [*alike_names, *by_depth][:_MAX_CANDIDATES]]

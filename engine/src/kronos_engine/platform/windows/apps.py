@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable, Sequence, Set
 from pathlib import Path
 
-from kronos_engine.core.platform import App, Folder, Window
+from kronos_engine.core.platform import OPENABLE_SUFFIXES, App, Folder, Window
 from kronos_engine.platform.windows import explorer, known_folders, open_windows
 
 log = logging.getLogger(__name__)
@@ -129,6 +129,20 @@ class WindowsPlatform:
         # la deja pasar al frente: queda atrás, parpadeando en la barra de
         # tareas, y una barra que se oculta sola no se oculta. Se la trae al
         # frente como si el usuario la hubiera tocado.
+        if window := new_window(before, self.windows):
+            self.focus_window(window)
+
+    def open_file(self, path: Path) -> None:
+        # Segunda barrera: aunque la acción ya lo revisó, un programa no se abre nunca.
+        if sys.platform != "win32" or not path.is_file():
+            return
+        if path.suffix.lower() not in OPENABLE_SUFFIXES:
+            return
+        before = {window.id for window in self.windows()}
+        # Con la aplicación que el usuario eligió para ese tipo, como un doble clic.
+        os.startfile(path)
+        # Como con las carpetas: si la aplicación ya estaba abierta, Windows deja
+        # la ventana atrás. Si tarda más en aparecer, queda donde Windows la ponga.
         if window := new_window(before, self.windows):
             self.focus_window(window)
 

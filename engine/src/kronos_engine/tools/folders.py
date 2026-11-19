@@ -108,7 +108,8 @@ class OpenFolderTool:
             "open_folder",
             "Abre en el explorador de archivos una de las carpetas que el usuario le permite "
             f"mirar a Kronos ({known}) o una subcarpeta que esté adentro de ellas, a cualquier "
-            f"profundidad.{pictures} No abre archivos ni carpetas de otros lugares. "
+            f"profundidad.{pictures} No abre archivos (para eso está open_file) ni carpetas de "
+            "otros lugares. "
             "Aunque no sepas cómo se llama exactamente ni dónde está, usala con lo que "
             "dijo el usuario («mi proyecto de la facultad»), sin preguntarle antes: la "
             "acción la busca también por el significado. Si el usuario dice «carpeta», "
@@ -143,6 +144,11 @@ class OpenFolderTool:
     async def describe(self, arguments: Mapping[str, Any]) -> str:
         target = await self._target(arguments)
         return f"abrir {target.label}"
+
+    async def locate(self, arguments: Mapping[str, Any]) -> tuple[Path, str]:
+        """La carpeta pedida y cómo nombrarla, sin abrirla: la usa `open_file`."""
+        target = await self._target(arguments)
+        return target.path, target.label
 
     async def run(self, arguments: Mapping[str, Any]) -> str:
         target = await self._target(arguments)
