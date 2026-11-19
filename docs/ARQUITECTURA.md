@@ -104,7 +104,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 | Texto a voz | `TTS` | Piper; las voces de ElevenLabs con clave propia, con Piper de respaldo | Kokoro, otras voces o motores |
 | Palabra de activación | `WakeWord` | El reconocedor de voz: transcribe y busca «Kronos» | Un detector entrenado (openWakeWord, livekit-wakeword) |
 | Modelo de lenguaje | `LLMProvider` | Ollama (`qwen3:8b`) de fábrica; Claude (Opus, Sonnet o Haiku 5.5) con clave propia, elegido en la pestaña Modelo sin reiniciar (`SwitchingProvider`). La clave va al Administrador de credenciales de Windows, no a `config.toml` | OpenAI, Gemini, OpenRouter, "Sign in with ChatGPT" |
-| Acciones | `Tool` | Hoy: decir la hora, abrir aplicaciones y cerrarlas, abrir las carpetas que el usuario permite y sus subcarpetas (si no la encuentra por las palabras, el modelo elige por el significado en una pregunta aparte, `Chooser`). Después: archivos, sistema, terminal | Nuevos plugins |
+| Acciones | `Tool` | Hoy: decir la hora, abrir aplicaciones y cerrarlas, abrir las carpetas que el usuario permite y sus subcarpetas (en la ventana del explorador que ya esté abierta, si hay una) (si no la encuentra por las palabras, el modelo elige por el significado en una pregunta aparte, `Chooser`). Después: archivos, sistema, terminal | Nuevos plugins |
 | Calendario | `CalendarProvider` | Google Calendar | `.ics`/CalDAV, Outlook, Notion |
 | Sistema operativo | `Platform` | Windows | macOS, Linux |
 

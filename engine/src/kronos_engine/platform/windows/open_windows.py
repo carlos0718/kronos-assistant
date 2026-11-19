@@ -15,6 +15,8 @@ _WS_EX_TOOLWINDOW = 0x80
 _DWMWA_CLOAKED = 14
 # El escritorio y la barra de tareas también son ventanas: no se tocan.
 _SHELL_CLASSES = {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"}
+# La clase de las ventanas del explorador de archivos.
+_EXPLORER_CLASS = "CabinetWClass"
 
 
 def list_windows() -> list[Window]:
@@ -47,10 +49,11 @@ def list_windows() -> list[Window]:
         return not cloaked.value
 
     def visit(hwnd: int, _: int) -> bool:
-        if on_screen(hwnd) and text(user32.GetClassNameW, hwnd, 256) not in _SHELL_CLASSES:
+        window_class = text(user32.GetClassNameW, hwnd, 256) if on_screen(hwnd) else ""
+        if window_class and window_class not in _SHELL_CLASSES:
             length = user32.GetWindowTextLengthW(hwnd)
             if length and (title := text(user32.GetWindowTextW, hwnd, length + 1).strip()):
-                found.append(Window(title, hwnd))
+                found.append(Window(title, hwnd, file_browser=window_class == _EXPLORER_CLASS))
         return True
 
     callback = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)

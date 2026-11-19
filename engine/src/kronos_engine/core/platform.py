@@ -24,6 +24,8 @@ class Window:
 
     title: str
     id: int  # Con qué la identifica el sistema.
+    # Si es una ventana del explorador de archivos: se reusa para abrir otra carpeta.
+    file_browser: bool = False
 
 
 class Folder(Enum):
