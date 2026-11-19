@@ -41,6 +41,7 @@ core/                el orquestador, el protocolo y las interfaces
 - **`core/` depende de interfaces, no de tecnologías.** El orquestador recibe un `Listener`, un `Responder` y un `Speaker`; no sabe si detrás hay whisper u otra cosa. Cambiar una tecnología no toca `core/`.
 - **Cada paquete nuevo se agrega a la lista de capas** en `engine/pyproject.toml` (`[tool.importlinter]`), al mismo nivel que `voice/`.
 - **Las librerías pesadas se importan dentro de la función que las usa**, con un comentario que lo explique. Así no demoran el arranque ni se cargan en el modo demo.
+- **Lo que se importa solo para los tipos** (dentro de `if TYPE_CHECKING:`) no existe al ejecutar: si la función lo usa, se importa también adentro de ella. Lo controla ruff (regla TC004); sin eso, mypy no lo ve y el motor real no arranca.
 
 ## 3. Interfaz (React)
 
