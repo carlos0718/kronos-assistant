@@ -76,14 +76,15 @@ export function Settings() {
           {error && <p className="panel-error">{error}</p>}
 
           {tab === "general" && <GeneralTab state={state} connection={connection} busy={busy} onSummon={summon} />}
-          {tab === "modelo" && <ModelTab />}
+          {tab === "modelo" && <ModelTab connection={connection} />}
           {tab === "voz" && <VoiceTab connection={connection} />}
           {tab === "permisos" && <PermissionsTab connection={connection} />}
           {tab === "rutinas" && <RoutinesTab />}
           {tab === "memoria" && <MemoryTab />}
 
           <p className="panel-note">
-            Vista previa del diseño: estas opciones todavía no se guardan ni cambian el comportamiento de Kronos.
+            Algunas opciones son todavía una vista previa del diseño: no se guardan ni cambian el comportamiento de
+            Kronos.
           </p>
         </section>
       </div>

@@ -21,6 +21,8 @@ class Message:
     tool_calls: tuple[ToolCall, ...] = ()
     # De qué acción es el resultado (solo con el rol "tool").
     tool_name: str = ""
+    # El id de esa acción, si el proveedor le dio uno.
+    tool_call_id: str = ""
 
 
 class LLMError(RuntimeError):

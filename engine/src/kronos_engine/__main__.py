@@ -62,8 +62,10 @@ def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s motor: %(message)s", datefmt="%H:%M:%S"
     )
-    # httpx anota cada pedido a Ollama: es ruido.
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    # httpx anota cada pedido a Ollama, y httpx2 (el del SDK de Anthropic) cada
+    # pedido a Claude: es ruido.
+    for noisy in ("httpx", "httpx2"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     if os.environ.get(DEBUG_ENV) == "1":
         logging.getLogger("kronos_engine").setLevel(logging.DEBUG)
     token = os.environ.get(TOKEN_ENV)
@@ -99,6 +101,7 @@ def main() -> None:
         parts.follow_up,
         parts.end_pause,
         parts.folder_access,
+        parts.model,
     )
     config = uvicorn.Config(app, log_level="warning", ws="websockets-sansio")
     uvicorn.Server(config).run(sockets=[sock])
