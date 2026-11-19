@@ -205,3 +205,28 @@ def test_el_registro_no_guarda_los_datos_de_la_accion(caplog: pytest.LogCaptureF
         run(gate, ToolCall("open_app", {"name": "Diario íntimo"}))
 
     assert "Diario íntimo" not in caplog.text
+
+
+def test_con_depuracion_el_registro_dice_por_que_no_se_pudo(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Un open_file falló sin que el registro dijera por qué.
+    tool = FakeTool("open_file", fail_with=ToolError("Hay varios archivos que pueden ser."))
+
+    with caplog.at_level(logging.DEBUG, logger="kronos_engine"):
+        run(PermissionGate([tool]), ToolCall("open_file", {"file": "CV"}))
+
+    assert "Hay varios archivos que pueden ser." in caplog.text
+
+
+def test_sin_depuracion_el_motivo_no_queda_en_el_registro(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # El motivo puede nombrar archivos del usuario.
+    tool = FakeTool("open_file", fail_with=ToolError("No encontré «Diario íntimo»."))
+
+    with caplog.at_level(logging.INFO, logger="kronos_engine"):
+        run(PermissionGate([tool]), ToolCall("open_file", {"file": "Diario íntimo"}))
+
+    assert "no se pudo hacer" in caplog.text
+    assert "Diario íntimo" not in caplog.text

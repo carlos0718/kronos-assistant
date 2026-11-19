@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Sequence
 import pytest
 
 from kronos_engine.agent.responder import MAX_TOOL_ROUNDS, AgentResponder
-from kronos_engine.core.llm import LLMError, Message
+from kronos_engine.core.llm import Aside, LLMError, Message
 from kronos_engine.core.tools import ToolCall, ToolSpec
 
 INSTRUCTIONS = "Sos Kronos."
@@ -14,7 +14,9 @@ ASK_TIME = ToolCall("current_time")
 
 class FakeProvider:
     def __init__(
-        self, replies: Sequence[Sequence[str | ToolCall]], fail_with: Exception | None = None
+        self,
+        replies: Sequence[Sequence[str | ToolCall | Aside]],
+        fail_with: Exception | None = None,
     ) -> None:
         self._replies = replies
         self._fail_with = fail_with
@@ -23,7 +25,7 @@ class FakeProvider:
 
     async def stream(
         self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
-    ) -> AsyncIterator[str | ToolCall]:
+    ) -> AsyncIterator[str | ToolCall | Aside]:
         self.received.append(list(messages))
         self.offered.append(list(tools))
         for piece in self._replies[len(self.received) - 1]:
@@ -239,3 +241,26 @@ def test_el_resultado_lleva_el_id_con_que_el_modelo_pidio_la_accion() -> None:
         "current_time",
         "toolu_1",
     )
+
+
+def test_la_nota_del_modelo_no_se_dice_pero_queda_en_la_memoria() -> None:
+    note = Aside("[Buscaste «Boca».]")
+    provider = FakeProvider([["Ganó ", note, "Boca."], ["El domingo."]])
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS)
+
+    async def scenario() -> str:
+        said = await ask(responder, "¿Boca?")
+        await ask(responder, "¿Cuándo?")
+        return said
+
+    assert asyncio.run(scenario()) == "Ganó Boca."
+    assert provider.received[1][2] == Message("assistant", "Ganó Boca.", aside=note.text)
+
+
+def test_la_nota_de_una_vuelta_con_acciones_queda_con_esa_vuelta() -> None:
+    note = Aside("[Buscaste «clima».]")
+    provider = FakeProvider([[note, ASK_TIME], ["Son las tres."]])
+
+    asyncio.run(ask(AgentResponder(provider, lambda: INSTRUCTIONS, tools=FakeToolbox()), "Hora"))
+
+    assert provider.received[1][2] == Message("assistant", "", (ASK_TIME,), aside=note.text)

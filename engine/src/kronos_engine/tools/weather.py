@@ -12,9 +12,9 @@ from typing import Any
 
 import httpx
 
+from kronos_engine.core.spoken_time import spoken_date
 from kronos_engine.core.tools import PermissionLevel, ToolError, ToolSpec
 from kronos_engine.tools.apps import normalize
-from kronos_engine.tools.clock import spoken_date
 
 log = logging.getLogger(__name__)
 

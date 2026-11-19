@@ -23,6 +23,20 @@ class Message:
     tool_name: str = ""
     # El id de esa acción, si el proveedor le dio uno.
     tool_call_id: str = ""
+    # Lo que hizo el modelo por su cuenta antes de responder, como buscar en
+    # internet (solo con el rol "assistant"). No se dijo en voz alta.
+    aside: str = ""
+
+
+@dataclass(frozen=True)
+class Aside:
+    """Una nota del proveedor sobre la respuesta, para recordar y no para decir.
+
+    Claude busca en internet en los servidores de Anthropic: sin esta nota, en
+    el turno siguiente no sabe de dónde salió lo que contestó y lo pone en duda.
+    """
+
+    text: str
 
 
 class LLMError(RuntimeError):
@@ -32,9 +46,10 @@ class LLMError(RuntimeError):
 class LLMProvider(Protocol):
     def stream(
         self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
-    ) -> AsyncIterator[str | ToolCall]:
+    ) -> AsyncIterator[str | ToolCall | Aside]:
         """Genera la respuesta a la conversación, de a pedazos.
 
-        Cada pedazo es texto, o una acción de `tools` que el modelo pide ejecutar.
+        Cada pedazo es texto, una acción de `tools` que el modelo pide ejecutar,
+        o una nota sobre la respuesta que no se dice en voz alta.
         """
         ...

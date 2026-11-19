@@ -4,7 +4,7 @@ import logging
 from collections.abc import AsyncIterator, Callable, Sequence
 from typing import Protocol
 
-from kronos_engine.core.llm import LLMError, LLMProvider, Message
+from kronos_engine.core.llm import Aside, LLMError, LLMProvider, Message
 from kronos_engine.core.model_choice import ANTHROPIC, ANTHROPIC_MODELS, ModelControl
 from kronos_engine.core.tools import ToolCall, ToolSpec
 
@@ -43,7 +43,7 @@ class SwitchingProvider:
 
     async def stream(
         self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
-    ) -> AsyncIterator[str | ToolCall]:
+    ) -> AsyncIterator[str | ToolCall | Aside]:
         async for piece in self._current().stream(messages, tools):
             yield piece
 

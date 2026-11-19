@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncGenerator, Callable
 
-from kronos_engine.core.llm import LLMProvider, Message
+from kronos_engine.core.llm import Aside, LLMProvider, Message
 from kronos_engine.core.tools import Toolbox, ToolCall
 
 # Cuántas veces seguidas puede pedir acciones el modelo antes de tener que contestar.
@@ -46,19 +46,22 @@ class AgentResponder:
         for round_number in range(MAX_TOOL_ROUNDS + 1):
             # En la última vuelta no se ofrecen acciones: el modelo tiene que contestar.
             offered = specs if round_number < MAX_TOOL_ROUNDS else ()
-            reply = ""
+            reply = aside = ""
             calls: list[ToolCall] = []
             async for piece in self._provider.stream([system, *past, *turn], offered):
                 if isinstance(piece, ToolCall):
                     calls.append(piece)
+                elif isinstance(piece, Aside):
+                    # Se recuerda, pero no se dice.
+                    aside += piece.text
                 else:
                     reply += piece
                     yield piece
             if tools is None or not offered or not calls:
                 # Una acción pedida sin que se la ofrecieran no se ejecuta.
-                turn.append(Message("assistant", reply))
+                turn.append(Message("assistant", reply, aside=aside))
                 break
-            turn.append(Message("assistant", reply, tuple(calls)))
+            turn.append(Message("assistant", reply, tuple(calls), aside=aside))
             if reply:
                 # Lo dicho antes de la acción es una frase aparte: se empieza a
                 # decir mientras la acción corre y no se pega con lo que sigue.

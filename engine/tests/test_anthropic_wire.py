@@ -166,3 +166,36 @@ def test_si_otro_modelo_termino_la_respuesta_se_saca_lo_de_antes_del_corte() -> 
         "thinking",
         "tool_use",
     ]
+
+
+def test_de_los_turnos_anteriores_la_nota_va_antes_de_la_respuesta() -> None:
+    # Claude tiene que saber de dónde salió lo que contestó.
+    wire = wire_messages(
+        [
+            Message("user", "¿Boca?"),
+            Message("assistant", "Ganó Boca.", aside="[Buscaste «Boca».]"),
+            Message("user", "¿Cuándo?"),
+        ],
+        {},
+    )
+
+    assert wire[1]["content"] == [
+        {"type": "text", "text": "[Buscaste «Boca».]"},
+        {"type": "text", "text": "Ganó Boca."},
+    ]
+
+
+def test_la_nota_va_tambien_con_las_acciones() -> None:
+    wire = wire_messages(
+        [
+            Message("user", "Hora"),
+            Message("assistant", "", (CLOCK,), aside="[Buscaste «hora».]"),
+            Message("tool", "15:42", tool_name="current_time", tool_call_id="toolu_1"),
+            Message("assistant", "Son las 15:42."),
+            Message("user", "Gracias"),
+        ],
+        {},
+    )
+
+    assert wire[1]["content"][0] == {"type": "text", "text": "[Buscaste «hora».]"}
+    assert wire[1]["content"][1]["type"] == "tool_use"
