@@ -1,13 +1,15 @@
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from kronos_engine.core.folder_access import FolderAccess
 from kronos_engine.core.platform import Folder
 from kronos_engine.core.tools import PermissionLevel, ToolError
-from kronos_engine.tools.folders import OpenFolderTool, find_folder
+from kronos_engine.tools.folder_search import find_folder
+from kronos_engine.tools.folders import OpenFolderTool
 
 
 class FakeFolders:
@@ -31,8 +33,34 @@ def folders(tmp_path: Path) -> FakeFolders:
     return FakeFolders(tmp_path)
 
 
-def run(folders: FakeFolders, **arguments: Any) -> str:
-    return asyncio.run(OpenFolderTool(folders).run(arguments))
+class FakeChooser:
+    """Elige la opción que empieza con `pick`, como lo haría el modelo; sin `pick`, ninguna."""
+
+    def __init__(self, pick: str | None = None) -> None:
+        self._pick = pick
+        self.wanted = ""
+        self.options: list[str] = []
+
+    async def choose(self, wanted: str, options: Sequence[str]) -> int | None:
+        self.wanted, self.options = wanted, list(options)
+        if self._pick is None:
+            return None
+        return next(i for i, option in enumerate(options) if option.startswith(self._pick))
+
+
+def tool(
+    folders: FakeFolders, access: FolderAccess | None = None, chooser: FakeChooser | None = None
+) -> OpenFolderTool:
+    return OpenFolderTool(folders, lambda: access or FolderAccess(), chooser)
+
+
+def run(
+    folders: FakeFolders,
+    access: FolderAccess | None = None,
+    chooser: FakeChooser | None = None,
+    **arguments: Any,
+) -> str:
+    return asyncio.run(tool(folders, access, chooser).run(arguments))
 
 
 def make(folders: FakeFolders, folder: Folder, *names: str) -> Path:
@@ -41,9 +69,14 @@ def make(folders: FakeFolders, folder: Folder, *names: str) -> Path:
     return path
 
 
-def fails(folders: FakeFolders, arguments: Mapping[str, Any]) -> str:
+def fails(
+    folders: FakeFolders,
+    arguments: Mapping[str, Any],
+    access: FolderAccess | None = None,
+    chooser: FakeChooser | None = None,
+) -> str:
     with pytest.raises(ToolError) as error:
-        asyncio.run(OpenFolderTool(folders).run(arguments))
+        asyncio.run(tool(folders, access, chooser).run(arguments))
     assert folders.opened == []
     return str(error.value)
 
@@ -154,14 +187,18 @@ def test_no_cuenta_lo_que_hay_adentro_si_no_hace_falta(folders: FakeFolders) -> 
     assert "kronos" not in result
 
 
-def test_si_la_subcarpeta_no_existe_dice_cuales_hay(folders: FakeFolders) -> None:
+def test_si_la_subcarpeta_no_existe_pide_preguntar_sin_dar_la_lista(
+    folders: FakeFolders,
+) -> None:
     make(folders, Folder.DESKTOP, "Workspace")
     make(folders, Folder.DESKTOP, "Juegos")
 
     message = fails(folders, {"folder": "Escritorio", "subfolders": ["Proyectos"]})
 
     assert "«Proyectos»" in message
-    assert "Juegos, Workspace" in message
+    assert "Preguntale al usuario" in message
+    # El modelo lee en voz alta las listas que recibe.
+    assert "Juegos" not in message
 
 
 def test_no_abre_archivos_ni_carpetas_ocultas(folders: FakeFolders) -> None:
@@ -197,8 +234,8 @@ def test_sin_nombre_no_abre_nada(folders: FakeFolders) -> None:
     fails(folders, {"subfolders": []})
 
 
-def test_el_modelo_sabe_cuales_puede_abrir() -> None:
-    description = OpenFolderTool.spec.description
+def test_el_modelo_sabe_cuales_puede_abrir(folders: FakeFolders) -> None:
+    description = tool(folders).spec.description
 
     for name in ("Escritorio", "Documentos", "Descargas", "Imágenes", "Música", "Videos"):
         assert name in description
@@ -207,11 +244,11 @@ def test_el_modelo_sabe_cuales_puede_abrir() -> None:
 
 def test_describe_lo_que_va_a_abrir(folders: FakeFolders) -> None:
     make(folders, Folder.DESKTOP, "Workspace")
-    tool = OpenFolderTool(folders)
+    opener = tool(folders)
 
-    assert asyncio.run(tool.describe({"folder": "descargas"})) == "abrir la carpeta Descargas"
+    assert asyncio.run(opener.describe({"folder": "descargas"})) == "abrir la carpeta Descargas"
     assert (
-        asyncio.run(tool.describe({"subfolders": ["Workspace"]}))
+        asyncio.run(opener.describe({"subfolders": ["Workspace"]}))
         == "abrir la carpeta Workspace, en Escritorio"
     )
 
@@ -277,3 +314,174 @@ def test_si_el_nombre_no_coincide_exacto_pide_decir_el_real(folders: FakeFolders
     assert "«Portfolio Web»" in guessed
     assert "«Portfolio-master»" in guessed
     assert "exactamente" not in exact
+
+
+# Las carpetas que el usuario permite mirar, desde la pestaña Permisos.
+ONLY_DESKTOP = FolderAccess(frozenset({Folder.DESKTOP}))
+
+
+def test_no_abre_una_carpeta_conocida_sin_permiso(folders: FakeFolders) -> None:
+    message = fails(folders, {"folder": "descargas"}, ONLY_DESKTOP)
+
+    assert "Descargas" in message
+    assert "Permisos" in message
+
+
+def test_no_busca_en_las_carpetas_sin_permiso(folders: FakeFolders) -> None:
+    make(folders, Folder.DOCUMENTS, "Facturas")
+
+    chooser = FakeChooser()
+
+    fails(folders, {"subfolders": ["Facturas"]}, ONLY_DESKTOP, chooser)
+
+    # Tampoco la ofrece como parecida.
+    assert not any("Facturas" in option for option in chooser.options)
+
+
+def test_sin_ninguna_carpeta_permitida_lo_dice(folders: FakeFolders) -> None:
+    nothing = FolderAccess(frozenset())
+
+    assert "Permisos" in fails(folders, {"subfolders": ["Facturas"]}, nothing)
+    assert "ninguna por ahora" in tool(folders, nothing).spec.description
+
+
+class NestedFolders(FakeFolders):
+    """Como en Windows: la carpeta personal contiene a las demás."""
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self.opened = []
+        for folder in Folder:
+            self.folder_path(folder).mkdir(parents=True, exist_ok=True)
+
+    def folder_path(self, folder: Folder) -> Path:
+        home = self._root / Folder.HOME.value
+        return home if folder == Folder.HOME else home / folder.value
+
+
+def test_una_carpeta_sin_permiso_no_se_alcanza_desde_la_personal(tmp_path: Path) -> None:
+    nested = NestedFolders(tmp_path)
+    make(nested, Folder.DOWNLOADS, "Facturas")
+    access = FolderAccess(frozenset({Folder.HOME}))
+
+    fails(nested, {"folder": "personal", "subfolders": ["downloads"]}, access)
+    fails(nested, {"folder": "personal", "subfolders": ["Facturas"]}, access)
+
+
+def test_abre_una_carpeta_que_sumo_el_usuario(folders: FakeFolders, tmp_path: Path) -> None:
+    projects = tmp_path / "D" / "proyectos"
+    kronos = projects / "kronos"
+    kronos.mkdir(parents=True)
+    access = FolderAccess(extra=(projects,))
+
+    assert run(folders, access, folder="proyectos").startswith("Se abrió la carpeta proyectos.")
+    assert run(folders, access, folder="proyectos", subfolders=["kronos"]).startswith(
+        "Se abrió la carpeta kronos, en proyectos."
+    )
+    run(folders, access, subfolders=["kronos"])
+
+    assert folders.opened == [projects, kronos, kronos]
+
+
+def test_el_modelo_sabe_de_las_carpetas_que_sumo_el_usuario(
+    folders: FakeFolders, tmp_path: Path
+) -> None:
+    access = FolderAccess(frozenset({Folder.DESKTOP}), (tmp_path / "proyectos",))
+
+    description = tool(folders, access).spec.description
+
+    assert "Escritorio y proyectos" in description
+    assert "Documentos" not in description
+
+
+def test_la_misma_carpeta_vista_desde_dos_lugares_no_es_una_duda(folders: FakeFolders) -> None:
+    workspace = make(folders, Folder.DESKTOP, "workspace")
+    portfolio = make(folders, Folder.DESKTOP, "workspace", "Portfolio-master")
+    access = FolderAccess(extra=(workspace,))
+
+    run(folders, access, subfolders=["Portfolio-master"])
+    run(folders, access, subfolders=["Portfolio Web"])
+
+    assert folders.opened == [portfolio, portfolio]
+
+
+def test_busca_tantos_niveles_como_eligio_el_usuario(folders: FakeFolders) -> None:
+    hidden = make(folders, Folder.DESKTOP, "a", "b", "c", "d", "Escondida")
+    make(folders, Folder.DESKTOP, "workspace", "Portfolio-master")
+    shallow = FolderAccess(depth=1)
+
+    fails(folders, {"folder": "Escritorio", "subfolders": ["Portfolio master"]}, shallow)
+    run(folders, FolderAccess(depth=5), folder="Escritorio", subfolders=["Escondida"])
+
+    assert folders.opened == [hidden]
+
+
+def test_no_entra_a_las_carpetas_que_arman_los_programas(folders: FakeFolders) -> None:
+    make(folders, Folder.DESKTOP, "web", "node_modules", "react")
+
+    fails(folders, {"folder": "Escritorio", "subfolders": ["react"]})
+
+
+def test_gana_la_palabra_que_tiene_una_sola_carpeta(folders: FakeFolders) -> None:
+    # «proyecto» está en muchas; «kronos», en una sola.
+    kronos = make(folders, Folder.DESKTOP, "workspace", "kronos-ai-assistant")
+    for name in ("proyecto", "proyectos-js", "react-basic-project"):
+        make(folders, Folder.DESKTOP, "workspace", name)
+
+    run(folders, subfolders=["mi proyecto de Kronos"])
+
+    assert folders.opened == [kronos]
+
+
+def test_si_no_la_encuentra_la_elige_por_el_significado(folders: FakeFolders) -> None:
+    # El usuario dijo «mi web personal» y se llama «Portfolio-master»: no comparten
+    # ni una palabra, así que elige el modelo, por el significado.
+    portfolio = make(folders, Folder.DESKTOP, "workspace", "Portfolio-master")
+    make(folders, Folder.DOCUMENTS, "Facturas")
+    chooser = FakeChooser("Portfolio-master")
+
+    result = run(folders, chooser=chooser, subfolders=["mi web personal"])
+
+    assert folders.opened == [portfolio]
+    assert chooser.wanted == "mi web personal"
+    assert {"Portfolio-master (en workspace)", "Facturas (en Documentos)"} <= set(chooser.options)
+    assert result.startswith("Se abrió la carpeta Portfolio-master, en workspace.")
+    # El usuario tiene que saber que no se llamaba así.
+    assert "«mi web personal»" in result
+
+
+def test_si_el_modelo_no_elige_ninguna_pide_preguntar(folders: FakeFolders) -> None:
+    make(folders, Folder.DESKTOP, "workspace", "Portfolio-master")
+
+    message = fails(folders, {"subfolders": ["la tesis"]}, chooser=FakeChooser())
+
+    assert "Preguntale al usuario" in message
+    assert "Portfolio" not in message
+
+
+def test_solo_elige_por_el_significado_la_ultima_del_camino(folders: FakeFolders) -> None:
+    make(folders, Folder.DESKTOP, "workspace", "Portfolio-master", "src")
+    chooser = FakeChooser("Portfolio-master")
+
+    fails(folders, {"subfolders": ["mi web personal", "src"]}, chooser=chooser)
+
+    assert chooser.options == []
+
+
+def test_las_parecidas_en_las_letras_se_ofrecen_primero(folders: FakeFolders) -> None:
+    for number in range(40):
+        make(folders, Folder.DOCUMENTS, f"proyecto-{number:02}")
+    make(folders, Folder.PICTURES, "viajes", "Fotografías")
+    chooser = FakeChooser()
+
+    fails(folders, {"subfolders": ["fotos"]}, chooser=chooser)
+
+    names = [option.split(" (")[0] for option in chooser.options]
+    assert names.index("Fotografías") < names.index("proyecto-00")
+
+
+def test_una_palabra_parecida_tiene_que_empezar_igual(folders: FakeFolders) -> None:
+    # «ingles» y «finales» comparten casi todas las letras, pero no son la misma palabra.
+    make(folders, Folder.DOWNLOADS, "docs", "proyectos-finales")
+
+    fails(folders, {"subfolders": ["apuntes de inglés"]})

@@ -144,6 +144,22 @@ Con la v0.13.0 se probó Scribe v3 de ElevenLabs como reconocedor de todo el mot
 - **Ese día el modelo de lenguaje fue el paso más lento** (4,87 s de mediana), como en otras pruebas: no es comparable con el 14 nov.
 - Antes, con las doce frases cortas de `pnpm engine:compare-stt` dichas por una voz sintética de Piper, ElevenLabs acertó 5 y Parakeet 3. Los dos fallaron «Kronos» y «bloc de notas» con esa voz.
 
+## Resultados del 18 nov. 2026: elegir una carpeta por el significado
+
+Con la v0.17.0, cuando `open_folder` no encuentra la carpeta por las palabras, le pregunta al modelo (`qwen3:8b`, sin razonamiento) cuál de hasta 80 carpetas permitidas es la pedida, en una pregunta aparte. Se probó con las carpetas reales del equipo del usuario y ocho pedidos con respuesta conocida, sin abrir nada:
+
+| Forma de preguntar | Aciertos | Tiempo por pregunta |
+|---|---|---|
+| Pedido arriba, lista abajo | 3 de 8 | — |
+| **Lista arriba, pedido al final (la elegida)** | **7 de 8** | **0,2 s** |
+| Lista arriba, con razonamiento (`think`) | 8 de 8 | 18 s de promedio |
+
+- Los aciertos fueron, por ejemplo, «portafolio de diseño web» → `Portfolio-master`, «la app de préstamos» → `app-movile-prestar`, «mis apuntes de inglés» → `english space`. En «tesis» y «facturas de luz», que no existen, no eligió ninguna. El que no acertó («las recetas») tampoco abrió nada.
+- **Con 100 opciones la pregunta pasó de 0,2 s a unos 5 s**; con 80, no. Por eso el tope es 80.
+- **Pasarle la lista al modelo de la conversación no sirvió**: la leía en voz alta y no elegía. Por eso va en una pregunta aparte.
+- «La carpeta de la aplicación de préstamos» a veces va a abrir aplicaciones en vez de carpetas; con «app» o «proyecto» va bien.
+- Los tiempos cambian mucho según lo que haga el equipo: en una corrida la misma pregunta tardó 3,2 s.
+
 ## Qué falta medir
 
 - Un turno con acción de punta a punta, con voz real.

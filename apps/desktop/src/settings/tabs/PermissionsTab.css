@@ -12,3 +12,21 @@
   align-items: baseline;
   gap: 12px;
 }
+
+/* Carpetas que sumó el usuario: un botón para quitarla, y otro abajo para sumar una. */
+.folder-btn {
+  flex: none;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.82rem;
+  color: var(--muted) !important;
+}
+.folder-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text) !important;
+}
+.folder-add {
+  margin-top: 12px;
+}

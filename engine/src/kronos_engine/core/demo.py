@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.end_pause import DEFAULT_MS
+from kronos_engine.core.folder_access import FolderAccess, checked
 from kronos_engine.core.follow_up import DEFAULT_SECONDS
 from kronos_engine.core.profile import Profile
 from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
@@ -101,6 +102,19 @@ class DemoEndPause:
 
     def set(self, milliseconds: int) -> None:
         self._milliseconds = milliseconds
+
+
+class DemoFolderAccess:
+    """Las carpetas permitidas, solo en la memoria."""
+
+    def __init__(self) -> None:
+        self._access = FolderAccess()
+
+    def get(self) -> FolderAccess:
+        return self._access
+
+    def set(self, access: FolderAccess) -> None:
+        self._access = checked(access)
 
 
 class DemoVoices:

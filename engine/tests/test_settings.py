@@ -15,7 +15,7 @@ def test_lo_que_se_guarda_se_vuelve_a_leer(tmp_path: Path) -> None:
     SettingsStore(path).save(Settings(voice="es_ES-davefx-medium"))
 
     assert SettingsStore(path).load() == Settings(voice="es_ES-davefx-medium")
-    assert path.read_text(encoding="utf-8") == (
+    assert path.read_text(encoding="utf-8").startswith(
         'voice = "es_ES-davefx-medium"\nwake_word = false\nfollow_up_seconds = 8\n'
         "end_pause_ms = 1500\n"
     )
@@ -83,3 +83,46 @@ def test_una_pausa_invalida_vuelve_a_la_de_fabrica(tmp_path: Path, value: str) -
     path.write_text(f"end_pause_ms = {value}\n", encoding="utf-8")
 
     assert SettingsStore(path).load() == Settings()
+
+
+def test_las_carpetas_permitidas_se_guardan_y_se_vuelven_a_leer(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path / "config.toml")
+
+    store.update(folders_known=("desktop",), folders_extra=("D:/proyectos",), folder_depth=2)
+
+    assert store.load() == Settings(
+        folders_known=("desktop",), folders_extra=("D:/proyectos",), folder_depth=2
+    )
+
+
+def test_sin_ninguna_carpeta_conocida_no_vuelve_a_las_de_fabrica(tmp_path: Path) -> None:
+    # Apagarlas todas es una elección del usuario, no un archivo roto.
+    store = SettingsStore(tmp_path / "config.toml")
+
+    store.update(folders_known=())
+
+    assert store.load().folders_known == ()
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        'folders_known = "desktop"',
+        "folder_depth = 0",
+        "folder_depth = 6",
+        "folder_depth = true",
+        "folders_extra = 3",
+    ],
+)
+def test_carpetas_invalidas_vuelven_a_las_de_fabrica(tmp_path: Path, line: str) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(line + "\n", encoding="utf-8")
+
+    assert SettingsStore(path).load() == Settings()
+
+
+def test_ignora_una_carpeta_conocida_que_no_existe(tmp_path: Path) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text('folders_known = ["desktop", "papelera", 3]\n', encoding="utf-8")
+
+    assert SettingsStore(path).load().folders_known == ("desktop",)

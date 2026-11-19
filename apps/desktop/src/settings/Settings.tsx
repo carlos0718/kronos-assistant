@@ -78,7 +78,7 @@ export function Settings() {
           {tab === "general" && <GeneralTab state={state} connection={connection} busy={busy} onSummon={summon} />}
           {tab === "modelo" && <ModelTab />}
           {tab === "voz" && <VoiceTab connection={connection} />}
-          {tab === "permisos" && <PermissionsTab />}
+          {tab === "permisos" && <PermissionsTab connection={connection} />}
           {tab === "rutinas" && <RoutinesTab />}
           {tab === "memoria" && <MemoryTab />}
 

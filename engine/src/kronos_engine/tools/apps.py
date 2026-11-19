@@ -119,7 +119,8 @@ def _suggestions(name: str, apps: Sequence[App]) -> list[str]:
 class OpenAppTool:
     spec = ToolSpec(
         "open_app",
-        "Abre una aplicación instalada en la computadora del usuario.",
+        "Abre una aplicación instalada en la computadora del usuario. No abre carpetas: "
+        "para «la carpeta de la aplicación…» usá open_folder.",
         {
             "type": "object",
             "required": ["name"],

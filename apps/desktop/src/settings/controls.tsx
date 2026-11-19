@@ -32,14 +32,21 @@ export function Value({ children }: { children: ReactNode }) {
   return <span className="value">{children}</span>;
 }
 
-type ToggleProps = { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean };
+type ToggleProps = {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  /** Qué prende: lo anuncia el lector de pantalla. */
+  label?: string;
+};
 
-export function Toggle({ checked, onChange, disabled }: ToggleProps) {
+export function Toggle({ checked, onChange, disabled, label }: ToggleProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       className="toggle"
       disabled={disabled}
       onClick={() => onChange(!checked)}

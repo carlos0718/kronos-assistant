@@ -11,7 +11,9 @@ from typing import Any
 import tomli_w
 
 from kronos_engine.core.end_pause import DEFAULT_MS, MAX_MS, MIN_MS
+from kronos_engine.core.folder_access import DEFAULT_DEPTH, MAX_DEPTH, MIN_DEPTH
 from kronos_engine.core.follow_up import DEFAULT_SECONDS, MAX_SECONDS
+from kronos_engine.core.platform import Folder
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +28,12 @@ class Settings:
     follow_up_seconds: int = DEFAULT_SECONDS
     # Milisegundos de silencio que dan por terminada la frase del usuario.
     end_pause_ms: int = DEFAULT_MS
+    # Las carpetas conocidas que Kronos puede mirar («desktop», «documents»…).
+    folders_known: tuple[str, ...] = tuple(folder.value for folder in Folder)
+    # Otras carpetas que sumó el usuario, con su ruta completa.
+    folders_extra: tuple[str, ...] = ()
+    # Cuántos niveles adentro de esas carpetas busca.
+    folder_depth: int = DEFAULT_DEPTH
 
 
 def _follow_up_seconds(value: object) -> int:
@@ -39,6 +47,27 @@ def _end_pause_ms(value: object) -> int:
     if isinstance(value, int) and not isinstance(value, bool) and MIN_MS <= value <= MAX_MS:
         return value
     return DEFAULT_MS
+
+
+def _folders_known(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        return Settings.folders_known
+    # Un nombre desconocido (de una versión futura, o mal escrito) se ignora.
+    names = {folder.value for folder in Folder}
+    return tuple(item for item in value if isinstance(item, str) and item in names)
+
+
+def _folders_extra(value: object) -> tuple[str, ...]:
+    # No se mira si existen: un disco desconectado no borra lo que eligió el usuario.
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, str) and item)
+
+
+def _folder_depth(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and MIN_DEPTH <= value <= MAX_DEPTH:
+        return value
+    return DEFAULT_DEPTH
 
 
 def config_dir() -> Path:
@@ -73,6 +102,9 @@ class SettingsStore:
             user_about=user_about if isinstance(user_about, str) else None,
             follow_up_seconds=_follow_up_seconds(data.get("follow_up_seconds")),
             end_pause_ms=_end_pause_ms(data.get("end_pause_ms")),
+            folders_known=_folders_known(data.get("folders_known")),
+            folders_extra=_folders_extra(data.get("folders_extra")),
+            folder_depth=_folder_depth(data.get("folder_depth")),
         )
 
     def save(self, settings: Settings) -> None:
