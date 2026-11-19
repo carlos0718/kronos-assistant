@@ -1,6 +1,6 @@
 # Mediciones de Kronos AI Assistant
 
-> Primera medición: 14 nov. 2026, sobre la versión 0.8.0; el 15 nov. se sumó Parakeet, que pasó a ser el reconocedor de fábrica (versión 0.9.0). Sirve para decidir el hardware mínimo y recomendado (ver "Preguntas abiertas" en el [README](../README.md)). Falta medir en un equipo más modesto y con un modelo en la nube.
+> Primera medición: 14 nov. 2026, sobre la versión 0.8.0; el 15 nov. se sumó Parakeet, que pasó a ser el reconocedor de fábrica (versión 0.9.0), y el 19 nov. una comparación de modelos de lenguaje locales (versión 0.19.0). Sirve para decidir el hardware mínimo y recomendado (ver "Preguntas abiertas" en el [README](../README.md)). Falta medir en un equipo más modesto y con un modelo en la nube.
 
 ## Cómo se mide
 
@@ -17,6 +17,8 @@ Para comparar qué tan bien entienden los reconocedores con una voz real hay un 
 2. `pnpm engine:compare-stt comparar` pasa las grabaciones por Parakeet v3, whisper `small` con el español fijo y Scribe v3 de ElevenLabs. Muestra qué entendió cada uno en cada frase y una tabla con aciertos y tiempo por frase. Una frase vale como acertada si coincide sin contar mayúsculas, tildes ni signos.
 
 ElevenLabs corre en la nube y es de pago: las grabaciones salen de la computadora. Solo se usa si está la clave, en la variable `ELEVENLABS_API_KEY` o en un archivo `.env` en la raíz del proyecto (copia de `.env.example`, que no se sube al repositorio); si no está, se compara el resto. Con `--reconocedores parakeet,base` se elige qué comparar.
+
+Para comparar modelos de lenguaje locales está `pnpm engine:compare-llm`. Le pasa a cada modelo quince pedidos escritos («¿Qué hora es?», «Abrí el blog de notas.», «Abrí la carpeta de mi portafolio.», «Escribí hola en el bloc de notas.», «Chau, gracias.»…) con las mismas instrucciones y las mismas acciones que una conversación. Las acciones no se ejecutan: el comando anota cuál pidió el modelo y le devuelve un resultado simulado, así no se abre ni se cierra nada en la pantalla. Un pedido vale como acertado si el modelo pidió la acción que corresponde con los datos correctos, o ninguna cuando no correspondía, y contestó algo. Aparte cuenta cuántas respuestas traen algo que no se puede decir en voz alta (Markdown, viñetas, emojis), y mide la primera palabra, la velocidad y cuánto ocupa el modelo en la placa de video. Repite cada pedido tres veces (`--rondas 5` para más) y con `--respuestas` muestra todo lo que contestó. De fábrica compara `qwen3:8b`, `qwen3.5:9b` y `gemma4:12b`; con `--modelos` se eligen otros. Los modelos tienen que estar descargados (`ollama pull <modelo>`); entre uno y otro saca de la memoria el anterior, para que el siguiente entre entero en la placa.
 
 `pnpm engine:measure` lee los mismos ajustes que el motor. Para probar otra pieza se usa la variable de entorno de siempre, por ejemplo `KRONOS_STT_MODEL=small` (whisper) o `KRONOS_LLM_MODEL=qwen3:4b`.
 
@@ -160,11 +162,43 @@ Con la v0.17.0, cuando `open_folder` no encuentra la carpeta por las palabras, l
 - «La carpeta de la aplicación de préstamos» a veces va a abrir aplicaciones en vez de carpetas; con «app» o «proyecto» va bien.
 - Los tiempos cambian mucho según lo que haga el equipo: en una corrida la misma pregunta tardó 3,2 s.
 
+## Resultados del 19 nov. 2026: tres modelos locales
+
+Con la v0.19.0 y `pnpm engine:compare-llm` (quince pedidos, tres rondas) se compararon `qwen3:8b` (el de fábrica), `qwen3.5:9b` y `gemma4:12b`, los tres en Ollama 0.40.16, cuantizados a 4 bits (`Q4_K_M`) y sin razonamiento previo. Mismo equipo, sin juegos ni otros programas pesados abiertos.
+
+| Modelo | Aciertos | Primera palabra sin acción | Primera palabra con acción | Turno más lento | Velocidad | Memoria de video |
+|---|---|---|---|---|---|---|
+| **`qwen3:8b`** | 38 de 45 | **0,33 s** | **1,36 s** | 8,7 s | **40 tokens/s** | 5,2 GB, entra entero |
+| `qwen3.5:9b` | 16 de 45 | 1,26 s | 1,25 s | 3,2 s | 38 tokens/s | entra entero |
+| `gemma4:12b` | **42 de 45** | 3,64 s | 17,74 s | más de 60 s | 6 tokens/s | no entra: 5,3 GB en la placa y 2,5 GB en la memoria compartida |
+
+Las 45 respuestas de los tres se pueden decir en voz alta: ninguna trajo Markdown, viñetas ni emojis.
+
+| Pedido | `qwen3:8b` | `qwen3.5:9b` | `gemma4:12b` |
+|---|---|---|---|
+| ¿Qué hora es? | 3 de 3 | 0 de 3 | 2 de 3 |
+| ¿Qué día es mañana? | 0 de 3 | 0 de 3 | 2 de 3 |
+| What time is it? | 3 de 3 | 0 de 3 | 3 de 3 |
+| Abrí el bloc de notas. / Abrí el blog de notas. / Abrí Spotify. | 9 de 9 | 0 de 9 | 9 de 9 |
+| Cerrá el bloc de notas. | 3 de 3 | 1 de 3 | 3 de 3 |
+| Abrí la carpeta Documentos. / Abrí la carpeta de mi portafolio. | 6 de 6 | 0 de 6 | 6 de 6 |
+| Abrí la carpeta de la aplicación de préstamos. | 2 de 3 | 0 de 3 | 3 de 3 |
+| ¿Cuál es la capital de Francia? | 3 de 3 | 3 de 3 | 2 de 3 |
+| Explicame qué es un agujero negro. | 0 de 3 | 3 de 3 | 3 de 3 |
+| Escribí hola… / ¿Qué temperatura hace hoy? / Chau, gracias. | 9 de 9 | 9 de 9 | 9 de 9 |
+
+- **`qwen3:8b` sigue siendo el que conviene en esta placa.** Es el más rápido y acierta casi todas las acciones. Falla en dos cosas: dice que mañana es «jueves 19», el mismo día que le dio el reloj, y **se niega a explicar qué es un agujero negro** («no tengo acceso a información externa»). Lo segundo viene de las instrucciones: la regla de decir que no puede consultar internet la aplica también a lo que sabe de memoria. Hay que corregir esa regla, sea cual sea el modelo.
+- **`qwen3.5:9b` casi nunca pide las acciones**, y después dice que las hizo («He cerrado el Bloc de notas»). Se probó aparte: sin instrucciones de sistema sí las pide, pero con cualquiera, aunque sea «Sos un asistente.», deja de pedirlas o lo hace al azar. Como Kronos siempre manda instrucciones, hoy no sirve. Puede ser un problema de cómo Ollama 0.40.16 arma la conversación para este modelo; no se buscó más.
+- **`gemma4:12b` es el que mejor contesta, pero no entra en 8 GB.** Acierta las carpetas que `qwen3:8b` confunde con aplicaciones, entiende «mañana» y escribe la hora como se dice («las tres y cuarenta y dos»), como piden las instrucciones. Pero Windows pone 2,5 GB del modelo en la memoria común, que la placa lee mucho más despacio: va a 6 tokens/s y tarda 18 s en empezar a contestar un pedido con acción. Dos turnos pasaron los 60 s, los dos en la primera ronda. Con una placa de 12 GB o más debería andar rápido, pero no se probó.
+- **Ollama informa mal la memoria de `gemma4:12b`**: `ollama ps` dice «1,0 GB, 100 % GPU». Lo que ocupa de verdad se vio con los contadores de Windows (`\GPU Adapter Memory(*)\Dedicated Usage` y `Shared Usage`), antes y después de cargarlo.
+- En la primera corrida, con el mismo resultado de fondo, `gemma4:12b` acertó 43 y `qwen3:8b` 41, porque todavía no se exigía que la explicación del agujero negro hablara de la gravedad.
+
 ## Qué falta medir
 
 - Un turno con acción de punta a punta, con voz real.
 - Cuántas respuestas cortas («sí», «no») pasa Parakeet a otro idioma con voz real. `pnpm engine:compare-stt` lo mide con grabaciones del usuario; falta correrlo.
 - Por qué se pierden algunas frases antes de llegar al reconocedor.
 - Un equipo sin placa de video, con el modelo local en el procesador.
-- Un modelo en la nube, cuando exista ese proveedor.
+- Un modelo en la nube, cuando exista ese proveedor. `pnpm engine:compare-llm` debería poder compararlo con los locales.
+- `gemma4:12b` en una placa de video de 12 GB o más.
 - Cuántas veces se activa sola la palabra de activación en un día de uso.
