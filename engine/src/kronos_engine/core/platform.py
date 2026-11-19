@@ -28,6 +28,21 @@ class Window:
     file_browser: bool = False
 
 
+# Los tipos de archivo que Kronos abre: documentos, planillas, presentaciones,
+# texto, imágenes, audio y video. Es una lista de permitidos, no de prohibidos:
+# lo que no está (programas, scripts, accesos directos, documentos con macros
+# como .docm o .xlsm) no se abre, aunque sea un tipo que no se conocía.
+OPENABLE_SUFFIXES = frozenset(
+    {
+        *(".pdf", ".epub", ".txt", ".md", ".rtf", ".csv"),
+        *(".doc", ".docx", ".odt", ".xls", ".xlsx", ".ods", ".ppt", ".pptx", ".odp"),
+        *(".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".heic", ".tif", ".tiff"),
+        *(".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"),
+        *(".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm"),
+    }
+)
+
+
 class Folder(Enum):
     """Las carpetas que todo usuario tiene, estén donde estén en el disco."""
 
@@ -50,7 +65,16 @@ class Folders(Protocol):
         ...
 
 
-class Platform(Folders, Protocol):
+class Files(Folders, Protocol):
+    def open_file(self, path: Path) -> None:
+        """Abre el archivo con la aplicación que el usuario tiene para ese tipo, adelante de todo.
+
+        Solo si su tipo está en `OPENABLE_SUFFIXES`: si no, no hace nada.
+        """
+        ...
+
+
+class Platform(Files, Protocol):
     def apps(self) -> Sequence[App]:
         """Las aplicaciones instaladas que el usuario puede abrir."""
         ...

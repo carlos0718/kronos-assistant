@@ -56,6 +56,9 @@ class FakePlatform:
     def open_path(self, path: Path) -> None:
         raise AssertionError("Estas acciones no abren carpetas.")
 
+    def open_file(self, path: Path) -> None:
+        raise AssertionError("Estas acciones no abren archivos.")
+
 
 def test_encuentra_la_aplicacion_por_su_nombre_exacto() -> None:
     assert find_app("Spotify", APPS) == SPOTIFY

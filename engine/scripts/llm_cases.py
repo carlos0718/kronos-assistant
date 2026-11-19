@@ -44,6 +44,10 @@ CASES = [
     Case("Abrí la carpeta de mi portafolio.", "open_folder", ("portafolio", "portfolio")),
     # Con «aplicación», qwen3:8b a veces abre aplicaciones en vez de carpetas.
     Case("Abrí la carpeta de la aplicación de préstamos.", "open_folder", ("prestamo",)),
+    # Un archivo, no una carpeta: tiene que ir a open_file.
+    Case("Abrí el archivo del presupuesto.", "open_file", ("presupuesto",)),
+    Case("Abrí el PDF del informe de ventas.", "open_file", ("informe", "ventas")),
+    Case("Abrí mi currículum.", "open_file", ("curriculum",)),
     Case("¿Cuál es la capital de Francia?", reply_words=("paris",)),
     # qwen3:8b contestaba que no podía, por la regla de no ofrecer lo que no puede hacer.
     Case("Explicame qué es un agujero negro.", reply_words=("gravedad",)),
@@ -134,5 +138,6 @@ class SimulatedTools:
             "open_app": f"Se abrió {_name(arguments)}.",
             "close_app": f"Hecho: se cerró {_name(arguments)}.",
             "open_folder": f"Se abrió {_folder(arguments)}.",
+            "open_file": f"Se abrió «{arguments.get('file') or 'el archivo'}».",
         }
         return results.get(call.name, f"No existe la acción {call.name}.")
