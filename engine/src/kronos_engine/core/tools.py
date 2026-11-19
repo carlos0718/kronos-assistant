@@ -38,6 +38,9 @@ class ToolCall:
 
     name: str
     arguments: Mapping[str, Any] = field(default_factory=dict)
+    # Con qué id lo pidió el modelo, si el proveedor usa ids (Claude los usa
+    # para emparejar cada acción con su resultado).
+    id: str = ""
 
 
 class ToolError(RuntimeError):

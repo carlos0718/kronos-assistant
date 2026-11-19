@@ -104,3 +104,31 @@ export async function getFolderAccess(connection: Connection): Promise<FolderAcc
 export async function setFolderAccess(connection: Connection, access: FolderAccess): Promise<void> {
   await request(connection, "/folder-access", { method: "PUT", body: JSON.stringify(access) });
 }
+
+/** Qué modelo responde: Ollama en la computadora, o Claude en la nube con la clave del usuario. */
+export type ModelStatus = {
+  provider: "ollama" | "anthropic";
+  /** Vacío: el de fábrica del proveedor. */
+  model: string;
+  /** Los modelos de Claude que se pueden elegir; el primero es el de fábrica. */
+  models: string[];
+  /** Si hay una clave de Anthropic guardada. La clave nunca vuelve del motor. */
+  has_key: boolean;
+};
+
+export async function getModel(connection: Connection): Promise<ModelStatus> {
+  return (await request(connection, "/model")).json();
+}
+
+export async function setModel(
+  connection: Connection,
+  provider: ModelStatus["provider"],
+  model: string,
+): Promise<void> {
+  await request(connection, "/model", { method: "PUT", body: JSON.stringify({ provider, model }) });
+}
+
+/** Guarda la clave en el Administrador de credenciales de Windows; vacía, la borra. */
+export async function setModelKey(connection: Connection, key: string): Promise<void> {
+  await request(connection, "/model/key", { method: "PUT", body: JSON.stringify({ provider: "anthropic", key }) });
+}

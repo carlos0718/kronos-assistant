@@ -10,6 +10,8 @@ from kronos_engine.core.conversation import Pipeline
 from kronos_engine.core.end_pause import DEFAULT_MS
 from kronos_engine.core.folder_access import FolderAccess, checked
 from kronos_engine.core.follow_up import DEFAULT_SECONDS
+from kronos_engine.core.model_choice import ANTHROPIC, ModelChoice
+from kronos_engine.core.model_choice import checked as checked_choice
 from kronos_engine.core.profile import Profile
 from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
 
@@ -89,6 +91,31 @@ class DemoFollowUp:
 
     def set(self, seconds: int) -> None:
         self._seconds = seconds
+
+
+class DemoModel:
+    """Una elección de modelo y unas claves que solo viven en la memoria."""
+
+    def __init__(self) -> None:
+        self._choice = ModelChoice()
+        self._keys: dict[str, str] = {}
+
+    def get(self) -> ModelChoice:
+        return self._choice
+
+    def set(self, choice: ModelChoice) -> None:
+        self._choice = checked_choice(choice)
+
+    def key(self, provider: str) -> str | None:
+        return self._keys.get(provider)
+
+    def set_key(self, provider: str, key: str) -> None:
+        if provider != ANTHROPIC:
+            raise ValueError(f"{provider} no usa clave.")
+        if key := key.strip():
+            self._keys[provider] = key
+        else:
+            self._keys.pop(provider, None)
 
 
 class DemoEndPause:

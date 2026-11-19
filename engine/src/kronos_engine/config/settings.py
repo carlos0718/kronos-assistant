@@ -13,6 +13,7 @@ import tomli_w
 from kronos_engine.core.end_pause import DEFAULT_MS, MAX_MS, MIN_MS
 from kronos_engine.core.folder_access import DEFAULT_DEPTH, MAX_DEPTH, MIN_DEPTH
 from kronos_engine.core.follow_up import DEFAULT_SECONDS, MAX_SECONDS
+from kronos_engine.core.model_choice import OLLAMA, ModelChoice, checked
 from kronos_engine.core.platform import Folder
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,10 @@ class Settings:
     folders_extra: tuple[str, ...] = ()
     # Cuántos niveles adentro de esas carpetas busca.
     folder_depth: int = DEFAULT_DEPTH
+    # Qué modelo responde: el proveedor («ollama», «anthropic») y el modelo
+    # (vacío: el de fábrica). La clave no va acá: ver `config/model_choice.py`.
+    llm_provider: str = OLLAMA
+    llm_model: str = ""
 
 
 def _follow_up_seconds(value: object) -> int:
@@ -70,6 +75,14 @@ def _folder_depth(value: object) -> int:
     return DEFAULT_DEPTH
 
 
+def _model_choice(provider: object, model: object) -> ModelChoice:
+    # Algo desconocido (de una versión futura, o editado a mano) vuelve a Ollama.
+    try:
+        return checked(ModelChoice(str(provider), model if isinstance(model, str) else ""))
+    except ValueError:
+        return ModelChoice()
+
+
 def config_dir() -> Path:
     """Carpeta de la app en el perfil del usuario."""
     if sys.platform == "win32":
@@ -95,6 +108,7 @@ class SettingsStore:
         wake_word = data.get("wake_word")
         user_name = data.get("user_name")
         user_about = data.get("user_about")
+        model = _model_choice(data.get("llm_provider", OLLAMA), data.get("llm_model"))
         return Settings(
             voice=voice if isinstance(voice, str) else None,
             wake_word=wake_word if isinstance(wake_word, bool) else False,
@@ -105,6 +119,8 @@ class SettingsStore:
             folders_known=_folders_known(data.get("folders_known")),
             folders_extra=_folders_extra(data.get("folders_extra")),
             folder_depth=_folder_depth(data.get("folder_depth")),
+            llm_provider=model.provider,
+            llm_model=model.model,
         )
 
     def save(self, settings: Settings) -> None:

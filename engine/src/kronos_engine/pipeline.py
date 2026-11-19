@@ -14,6 +14,7 @@ from kronos_engine.core.demo import (
     DemoEndPause,
     DemoFolderAccess,
     DemoFollowUp,
+    DemoModel,
     DemoProfile,
     DemoVoices,
     DemoWakeWord,
@@ -22,6 +23,7 @@ from kronos_engine.core.demo import (
 from kronos_engine.core.end_pause import EndPauseControl
 from kronos_engine.core.folder_access import FolderAccess, FolderAccessControl
 from kronos_engine.core.follow_up import FollowUpControl
+from kronos_engine.core.model_choice import ModelControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.tools import Tool
@@ -71,6 +73,7 @@ class Parts:
     follow_up: FollowUpControl
     end_pause: EndPauseControl
     folder_access: FolderAccessControl
+    model: ModelControl
 
 
 def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt | ElevenLabsStt":
@@ -195,6 +198,7 @@ def build() -> Parts:
             DemoFollowUp(),
             DemoEndPause(),
             DemoFolderAccess(),
+            DemoModel(),
         )
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
@@ -204,10 +208,14 @@ def build() -> Parts:
     from kronos_engine.config.end_pause import StoredEndPause
     from kronos_engine.config.folder_access import StoredFolderAccess
     from kronos_engine.config.follow_up import StoredFollowUp
+    from kronos_engine.config.model_choice import StoredModelChoice
     from kronos_engine.config.profile import StoredProfile
     from kronos_engine.config.settings import SettingsStore
+    from kronos_engine.llm.anthropic import AnthropicProvider
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
+    from kronos_engine.llm.switching import SwitchingProvider
     from kronos_engine.permissions.gate import PermissionGate
+    from kronos_engine.platform.windows.credentials import WindowsCredentials
     from kronos_engine.voice.catalog import DEFAULT_VOICES
     from kronos_engine.voice.elevenlabs import KEY_ENV
     from kronos_engine.voice.listener import VoiceListener
@@ -235,10 +243,13 @@ def build() -> Parts:
     )
     tts = RoutedTts(voice, conversation_tts(default_voice, outage))
     tts.preload()
-    model = OllamaProvider(
+    local = OllamaProvider(
         os.environ.get(MODEL_ENV, DEFAULT_MODEL),
         base_url=os.environ.get(OLLAMA_URL_ENV, DEFAULT_URL),
     )
+    # Ollama de fábrica; Claude si el usuario lo elige (la clave, en Windows).
+    choice = StoredModelChoice(store, WindowsCredentials())
+    model = SwitchingProvider(choice, local, AnthropicProvider)
     model.preload()
 
     profile = StoredProfile(store)
@@ -278,5 +289,5 @@ def build() -> Parts:
         tts, tts_for, play, lambda voice: store.update(voice=voice), catalog=voice_catalog()
     )
     return Parts(
-        pipeline, voices, standby, profile, StoredFollowUp(store), end_pause, folder_access
+        pipeline, voices, standby, profile, StoredFollowUp(store), end_pause, folder_access, choice
     )

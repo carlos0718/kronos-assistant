@@ -224,3 +224,18 @@ def test_sin_acciones_disponibles_ignora_las_que_pida_el_modelo() -> None:
 
     assert asyncio.run(ask(responder, "Hola")) == "Hola."
     assert len(provider.received) == 1
+
+
+def test_el_resultado_lleva_el_id_con_que_el_modelo_pidio_la_accion() -> None:
+    # Claude empareja cada acción con su resultado por el id.
+    call = ToolCall("current_time", id="toolu_1")
+    provider = FakeProvider([[call], ["Son las tres."]])
+
+    asyncio.run(ask(AgentResponder(provider, lambda: INSTRUCTIONS, tools=FakeToolbox()), "Hora"))
+
+    result = provider.received[1][-1]
+    assert (result.role, result.tool_name, result.tool_call_id) == (
+        "tool",
+        "current_time",
+        "toolu_1",
+    )

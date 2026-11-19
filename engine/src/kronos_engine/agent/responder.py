@@ -65,7 +65,7 @@ class AgentResponder:
                 yield "\n"
             for call in calls:
                 result = await tools.run(call)
-                turn.append(Message("tool", result, tool_name=call.name))
+                turn.append(Message("tool", result, tool_name=call.name, tool_call_id=call.id))
         # Solo se recuerda el turno si terminó: uno cortado o fallido no dejó respuesta.
         self._history.append(turn)
         del self._history[: -self._max_turns]
