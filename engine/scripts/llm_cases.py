@@ -23,15 +23,18 @@ class Case:
     words: tuple[str, ...] = ()
     # Palabras que tienen que aparecer en la respuesta («París»).
     reply_words: tuple[str, ...] = ()
+    # Palabras que no tienen que aparecer: lo que no se preguntó.
+    avoid_words: tuple[str, ...] = ()
 
 
 # Los pedidos de las pruebas con micrófono, más los que tienen que contestarse
 # sin acción: despedirse, una pregunta general y cosas que Kronos todavía no puede.
 CASES = [
-    Case("¿Qué hora es?", "current_time"),
+    # La acción también da la fecha de mañana: no hay que decirla si no la piden.
+    Case("¿Qué hora es?", "current_time", avoid_words=("manana", "viernes")),
     # El reloj simulado dice jueves: mañana es viernes.
     Case("¿Qué día es mañana?", "current_time", reply_words=("viernes",)),
-    Case("What time is it?", "current_time"),
+    Case("What time is it?", "current_time", avoid_words=("manana", "tomorrow", "friday")),
     Case("Abrí el bloc de notas.", "open_app", ("bloc",)),
     # Así lo transcribió Parakeet en una prueba con micrófono.
     Case("Abrí el blog de notas.", "open_app", ("bloc", "blog")),
@@ -90,6 +93,8 @@ class Turn:
 
     def right_reply(self, case: Case) -> bool:
         reply = plain(self.reply)
+        if any(word in reply.split() for word in case.avoid_words):
+            return False
         return bool(reply) and all(word in reply for word in case.reply_words)
 
     def speakable(self) -> bool:
