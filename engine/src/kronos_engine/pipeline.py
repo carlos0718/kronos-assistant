@@ -30,6 +30,7 @@ from kronos_engine.core.voices import VoiceControl
 if TYPE_CHECKING:
     from kronos_engine.core.voices import VoiceInfo
     from kronos_engine.voice.elevenlabs import ElevenLabsStt, ElevenLabsTts
+    from kronos_engine.voice.fallback import FallbackStt, FallbackTts, Outage
     from kronos_engine.voice.parakeet import ParakeetStt
     from kronos_engine.voice.stt import WhisperStt
     from kronos_engine.voice.tts import PiperTts
@@ -102,6 +103,37 @@ def tts_for(voice: str) -> "PiperTts | ElevenLabsTts":
         model = os.environ.get(TTS_MODEL_ENV, TTS_MODEL)
         return ElevenLabsTts(os.environ.get(KEY_ENV, ""), voice, model=model)
     return PiperTts(voice)
+
+
+def conversation_stt(
+    name: str, language: str, outage: "Outage"
+) -> "ParakeetStt | WhisperStt | ElevenLabsStt | FallbackStt":
+    """El reconocedor de la conversación: si es ElevenLabs, con Parakeet de respaldo."""
+    from kronos_engine.voice.fallback import FallbackStt
+
+    stt = stt_for(name, language)
+    if name != ELEVENLABS:
+        return stt
+    return FallbackStt(stt, stt_for(PARAKEET, language), outage)
+
+
+def conversation_tts(
+    backup_voice: str, outage: "Outage"
+) -> "Callable[[str], PiperTts | FallbackTts]":
+    """Crea el motor de voz de la conversación: las de ElevenLabs, con Piper de respaldo.
+
+    Probar una voz en la pestaña Voz no usa respaldo: si ElevenLabs falla, se ve el error.
+    """
+    from kronos_engine.voice.fallback import FallbackTts
+    from kronos_engine.voice.tts import PiperTts
+
+    def make(voice: str) -> "PiperTts | FallbackTts":
+        tts = tts_for(voice)
+        if isinstance(tts, PiperTts):
+            return tts
+        return FallbackTts(tts, PiperTts(backup_voice), outage)
+
+    return make
 
 
 def starting_voice(saved: str | None, default: str, has_key: bool) -> str:
@@ -191,15 +223,17 @@ def build() -> Parts:
     settings = store.load()
     default_voice = DEFAULT_VOICES.get(language, DEFAULT_VOICES["es"])
 
+    # Si ElevenLabs no responde, transcribir y hablar pasan juntos a la computadora.
+    outage = Outage()
     # Los tres modelos se cargan mientras el usuario todavía no habló.
-    stt = stt_for(os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL), language)
+    stt = conversation_stt(os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL), language, outage)
     stt.preload()
     voice = starting_voice(
         settings.voice or os.environ.get(VOICE_ENV),
         default_voice,
         has_key=bool(os.environ.get(KEY_ENV)),
     )
-    tts = RoutedTts(voice, tts_for)
+    tts = RoutedTts(voice, conversation_tts(default_voice, outage))
     tts.preload()
     model = OllamaProvider(
         os.environ.get(MODEL_ENV, DEFAULT_MODEL),

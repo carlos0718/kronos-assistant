@@ -2,6 +2,8 @@ import pytest
 
 from kronos_engine.pipeline import (
     DEFAULT_STT_MODEL,
+    conversation_stt,
+    conversation_tts,
     starting_voice,
     stt_for,
     tts_for,
@@ -9,6 +11,7 @@ from kronos_engine.pipeline import (
 )
 from kronos_engine.voice.catalog import VOICES
 from kronos_engine.voice.elevenlabs import ElevenLabsError, ElevenLabsStt, ElevenLabsTts
+from kronos_engine.voice.fallback import FallbackStt, FallbackTts, Outage
 from kronos_engine.voice.parakeet import ParakeetStt
 from kronos_engine.voice.stt import WhisperStt
 from kronos_engine.voice.tts import PiperTts
@@ -70,3 +73,31 @@ def test_sin_clave_solo_se_ofrecen_las_voces_de_piper(monkeypatch: pytest.Monkey
     monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
 
     assert voice_catalog()() == VOICES
+
+
+def test_en_la_conversacion_elevenlabs_transcribe_con_respaldo_de_parakeet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "clave-de-prueba")
+
+    assert isinstance(conversation_stt("elevenlabs", "es", Outage()), FallbackStt)
+
+
+def test_en_la_conversacion_los_reconocedores_locales_no_llevan_respaldo() -> None:
+    assert isinstance(conversation_stt("parakeet", "es", Outage()), ParakeetStt)
+
+
+def test_en_la_conversacion_una_voz_de_elevenlabs_tiene_respaldo_de_piper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "clave-de-prueba")
+    make = conversation_tts(DANIELA, Outage())
+
+    tts = make("elevenlabs:abc")
+
+    assert isinstance(tts, FallbackTts)
+    assert tts.voice == "elevenlabs:abc"
+
+
+def test_en_la_conversacion_una_voz_de_piper_no_lleva_respaldo() -> None:
+    assert isinstance(conversation_tts(DANIELA, Outage())(DAVE), PiperTts)
