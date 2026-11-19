@@ -129,7 +129,8 @@ class OpenAppTool:
                     "type": "string",
                     "description": (
                         "Nombre de la aplicación, tal como lo dijo el usuario. "
-                        "Ejemplos: Bloc de notas, Chrome, Spotify."
+                        "Ejemplos: Bloc de notas (a veces llega transcrito «blog de notas»), "
+                        "Chrome, Spotify."
                     ),
                 },
                 "new_window": {

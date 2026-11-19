@@ -202,3 +202,103 @@ def test_los_errores_de_anthropic_se_explican(error: Exception, said: str) -> No
 
     with pytest.raises(LLMError, match=said):
         asyncio.run(collect(AnthropicProvider("sk", client=client), [Message("user", "?")]))
+
+
+def _server_tools(request: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {tool["name"]: tool for tool in request.get("tools", []) if "type" in tool}
+
+
+def test_con_acciones_puede_buscar_en_internet_y_leer_paginas_con_un_tope() -> None:
+    client = FakeClient(answer("Hola."))
+
+    asyncio.run(collect(AnthropicProvider("sk", client=client), [Message("user", "?")], [CLOCK]))
+
+    web = _server_tools(client.requests[0])
+    assert web["web_search"]["type"] == "web_search_20260209"
+    assert web["web_fetch"]["type"] == "web_fetch_20260209"
+    # Cada búsqueda se cobra: pocas por respuesta, y páginas recortadas.
+    assert web["web_search"]["max_uses"] <= 3
+    assert web["web_fetch"]["max_content_tokens"] <= 10000
+
+
+def test_haiku_busca_con_la_version_basica_y_no_lee_paginas() -> None:
+    client = FakeClient(answer("Hola."))
+    provider = AnthropicProvider("sk", "claude-haiku-5-5", client=client)
+
+    asyncio.run(collect(provider, [Message("user", "?")], [CLOCK]))
+
+    web = _server_tools(client.requests[0])
+    assert web["web_search"]["type"] == "web_search_20250305"
+    assert "web_fetch" not in web
+
+
+def test_una_pregunta_aparte_sin_acciones_no_busca_en_internet() -> None:
+    client = FakeClient(answer("3"))
+
+    asyncio.run(collect(AnthropicProvider("sk", client=client), [Message("user", "¿Cuál?")]))
+
+    assert "tools" not in client.requests[0]
+
+
+def test_si_la_busqueda_queda_en_pausa_la_sigue() -> None:
+    searching = SimpleNamespace(type="server_tool_use", id="srvtoolu_1", name="web_search")
+    paused = FakeStream(["Busco. "], [text("Busco. "), searching], "pause_turn")
+    client = FakeClient(paused, answer("Hace veinte grados."))
+
+    pieces = asyncio.run(
+        collect(AnthropicProvider("sk", client=client), [Message("user", "¿Clima?")], [CLOCK])
+    )
+
+    assert pieces == ["Busco. ", "Hace veinte grados."]
+    # Se reenvía lo que mandó Claude, sin un mensaje del usuario de por medio.
+    assert client.requests[1]["messages"][-1] == {
+        "role": "assistant",
+        "content": [text("Busco. "), searching],
+    }
+
+
+def test_si_despues_de_la_pausa_pide_una_accion_se_devuelve_todo_junto() -> None:
+    before = text("Busco. ")
+    call = tool_use("toolu_1", "current_time", {})
+    client = FakeClient(
+        FakeStream([], [before], "pause_turn"),
+        FakeStream([], [call], "tool_use"),
+        answer("Listo."),
+    )
+    provider = AnthropicProvider("sk", client=client)
+    turn = [Message("user", "Hora")]
+
+    asyncio.run(collect(provider, turn, [CLOCK]))
+    turn += [
+        Message("assistant", "", (ToolCall("current_time", {}, id="toolu_1"),)),
+        Message("tool", "15:42", tool_name="current_time", tool_call_id="toolu_1"),
+    ]
+    asyncio.run(collect(provider, turn, [CLOCK]))
+
+    assert client.requests[2]["messages"][1]["content"] == [before, call]
+
+
+def test_si_anthropic_rechaza_la_busqueda_responde_sin_ella_y_no_la_vuelve_a_pedir() -> None:
+    # Por ejemplo, si la organización la tiene apagada: Claude tiene que seguir andando.
+    rejected = anthropic.BadRequestError(
+        "web_search is not enabled for this organization", response=_response(400), body=None
+    )
+    client = FakeClient(rejected, answer("Son las tres."), answer("Hola."))
+    provider = AnthropicProvider("sk", client=client)
+
+    pieces = asyncio.run(collect(provider, [Message("user", "Hora")], [CLOCK]))
+    asyncio.run(collect(provider, [Message("user", "Hola")], [CLOCK]))
+
+    assert pieces == ["Son las tres."]
+    assert _server_tools(client.requests[1]) == {}
+    assert _server_tools(client.requests[2]) == {}
+
+
+def test_un_rechazo_sin_herramientas_web_no_se_repite() -> None:
+    rejected = anthropic.BadRequestError("mal", response=_response(400), body=None)
+    client = FakeClient(rejected)
+
+    with pytest.raises(LLMError, match="rechazó"):
+        asyncio.run(collect(AnthropicProvider("sk", client=client), [Message("user", "?")]))
+
+    assert len(client.requests) == 1

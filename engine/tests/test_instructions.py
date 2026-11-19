@@ -31,3 +31,11 @@ def test_lo_que_sabe_lo_contesta_sin_internet() -> None:
 
     assert "conocimiento general" in text
     assert "no necesitás internet" in text
+
+
+def test_lo_que_busca_en_internet_lo_cuenta_corto_y_sin_leer_direcciones() -> None:
+    # Las respuestas se dicen en voz alta: una dirección web no se puede leer.
+    text = INSTRUCTIONS.lower()
+
+    assert "internet" in text
+    assert "direcciones web" in text
