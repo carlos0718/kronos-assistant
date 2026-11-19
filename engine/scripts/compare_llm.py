@@ -23,6 +23,7 @@ import statistics
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import httpx
 from llm_cases import CASES, Case, SimulatedTools, Turn
@@ -35,6 +36,7 @@ from kronos_engine.config.settings import SettingsStore
 from kronos_engine.core.llm import LLMError
 from kronos_engine.core.tools import ToolSpec
 from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
+from kronos_engine.tools.clock import CurrentTimeTool
 
 MODELS = ["qwen3:8b", "qwen3.5:9b", "gemma4:12b"]
 GIB = 1024**3
@@ -43,7 +45,9 @@ TURN_TIMEOUT = 60
 
 
 async def run_case(provider: OllamaProvider, specs: Sequence[ToolSpec], case: Case) -> Turn:
-    tools = SimulatedTools(specs, "jueves 19 de noviembre de 2026, 15:42")
+    # La acción real del reloj, con la hora fija: devuelve el mismo texto que en una conversación.
+    clock = await CurrentTimeTool(lambda: datetime(2026, 11, 19, 15, 42)).run({})
+    tools = SimulatedTools(specs, clock)
     responder = AgentResponder(provider, lambda: instructions_for("", ""), tools=tools)
     turn = Turn()
     start = time.perf_counter()
