@@ -1,7 +1,7 @@
 {
   "name": "kronos-assistant",
   "private": true,
-  "version": "0.18.0",
+  "version": "0.19.0",
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@12.18.0",
   "scripts": {
@@ -11,6 +11,7 @@
     "engine:dev": "uv run --project engine kronos-engine",
     "engine:measure": "uv run --project engine python engine/scripts/measure.py",
     "engine:compare-stt": "uv run --project engine python engine/scripts/compare_stt.py",
+    "engine:compare-llm": "uv run --project engine python engine/scripts/compare_llm.py",
     "engine:test": "uv run --project engine pytest engine/tests",
     "engine:lint": "uv run --project engine ruff check engine",
     "engine:format": "uv run --project engine ruff format --check engine",
