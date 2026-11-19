@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence, Set
 from pathlib import Path
 
 from kronos_engine.core.platform import App, Folder, Window
-from kronos_engine.platform.windows import known_folders, open_windows
+from kronos_engine.platform.windows import explorer, known_folders, open_windows
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +116,13 @@ class WindowsPlatform:
         # Abrir un archivo lo ejecutaría: solo se abren carpetas.
         if sys.platform != "win32" or not path.is_dir():
             return
-        before = {window.id for window in self.windows()}
+        windows = self.windows()
+        # Si ya hay una ventana del explorador, se la lleva a la carpeta en vez de abrir otra.
+        if (reused := explorer.reusable_explorer(windows)) and explorer.navigate(reused, path):
+            log.info("La carpeta se abrió en la ventana del explorador que ya estaba.")
+            self.focus_window(reused)
+            return
+        before = {window.id for window in windows}
         # Como un doble clic: sin pasar la ruta por un intérprete de comandos.
         os.startfile(path)
         # La ventana la crea el explorador que ya estaba corriendo, y Windows no
