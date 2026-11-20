@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { type Connection, getWakeWord, setWakeWord } from "../../engine/api";
 import { type AssistantState, STATE_LABEL } from "../../engine/useEngine";
+import { useChatShown } from "../../shared/useChatShown";
 import { Group, Row, Segmented, Toggle } from "../controls";
 import { Icon } from "../icons";
 import "./GeneralTab.css";
@@ -17,6 +18,7 @@ export function GeneralTab({ state, connection, busy, onSummon }: Props) {
   const connected = state !== "disconnected";
   const [wakeWord, setWakeWordShown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatShown, setChatShown] = useChatShown();
   // Valores de muestra: todavía no se guardan ni llegan al motor.
   const [language, setLanguage] = useState("Español");
   const [autoActivate, setAutoActivate] = useState(false);
@@ -65,6 +67,15 @@ export function GeneralTab({ state, connection, busy, onSummon }: Props) {
       </Group>
 
       <ProfileGroup connection={connection} />
+
+      <Group title="Pantalla">
+        <Row
+          label="Mostrar el texto de la conversación"
+          text="Si lo apagás, queda solo el orbe. Las preguntas para aprobar una acción y los errores se muestran igual. También se cambia con la burbujita al lado del orbe."
+        >
+          <Toggle checked={chatShown} onChange={setChatShown} />
+        </Row>
+      </Group>
 
       <Group title="Idioma">
         <Row label="Idioma de la voz y de la interfaz">

@@ -57,6 +57,52 @@
   font-size: 0.82rem;
 }
 
+/* La burbujita queda al lado del orbe, sin correrlo del centro. */
+.overlay-orb {
+  position: relative;
+  display: flex;
+}
+
+.chat-toggle {
+  position: absolute;
+  right: -34px;
+  bottom: 10px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(15, 14, 23, 0.85);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.chat-toggle:hover,
+.chat-toggle:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  outline: none;
+}
+.chat-toggle[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+/* Oculto y con algo dicho: un puntito avisa que hay texto para ver. */
+.chat-toggle[data-waiting="true"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
 .overlay-state {
   margin: 0;
   padding: 2px 10px;
