@@ -64,6 +64,9 @@ def wire_messages(
 
 
 def _assistant_blocks(message: Message, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+    # Lo que buscó en internet va antes de lo que contestó con eso.
+    if message.aside:
+        yield {"type": "text", "text": message.aside}
     if message.content:
         yield {"type": "text", "text": message.content}
     for call, call_id in zip(message.tool_calls, ids, strict=True):

@@ -1,27 +1,11 @@
 """Acción: decir la fecha y la hora."""
 
 from collections.abc import Callable, Mapping
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
+from kronos_engine.core.spoken_time import spoken_date, spoken_zone
 from kronos_engine.core.tools import PermissionLevel, ToolSpec
-
-# Escritos a mano para no depender del idioma en que esté configurado el sistema.
-_DAYS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
-_MONTHS = (
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-)
 
 
 class CurrentTimeTool:
@@ -32,7 +16,7 @@ class CurrentTimeTool:
     )
     level = PermissionLevel.NORMAL
 
-    def __init__(self, now: Callable[[], datetime] = datetime.now) -> None:
+    def __init__(self, now: Callable[[], datetime] = lambda: datetime.now().astimezone()) -> None:
         self._now = now
 
     async def describe(self, arguments: Mapping[str, Any]) -> str:
@@ -42,13 +26,10 @@ class CurrentTimeTool:
         now = self._now()
         # Mañana va ya calculada: el modelo erraba la cuenta y repetía el día de hoy.
         tomorrow = (now + timedelta(days=1)).date()
+        # Con la zona, Claude puede pasar a esta hora la de un partido en otro país.
+        zone = f" ({spoken_zone(now)})" if now.utcoffset() is not None else ""
         # Si no se lo pide así, el modelo lee todo aunque solo le pregunten la hora.
         return (
-            f"Hora: {now:%H:%M}. Hoy: {spoken_date(now.date())}. Mañana: {spoken_date(tomorrow)}. "
-            "Decí solo lo que te preguntaron."
+            f"Hora: {now:%H:%M}{zone}. Hoy: {spoken_date(now.date())}. "
+            f"Mañana: {spoken_date(tomorrow)}. Decí solo lo que te preguntaron."
         )
-
-
-def spoken_date(day: date) -> str:
-    """«jueves 19 de noviembre de 2026»."""
-    return f"{_DAYS[day.weekday()]} {day.day} de {_MONTHS[day.month - 1]} de {day.year}"

@@ -244,3 +244,11 @@ def test_el_registro_distingue_abrir_de_traer_al_frente(caplog: pytest.LogCaptur
     assert "se abrió" in messages[0]
     assert "al frente" in messages[1]
     assert not any("Bloc" in message for message in messages)
+
+
+def test_el_modelo_sabe_que_una_carpeta_se_cierra_cerrando_el_explorador() -> None:
+    # A «cerrá la carpeta» Claude contestaba que solo podía abrirlas.
+    description = CloseAppTool(FakePlatform()).spec.description
+
+    assert "carpeta" in description
+    assert "Explorador de archivos" in description

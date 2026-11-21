@@ -12,9 +12,10 @@ from typing import Any
 
 import anthropic
 
-from kronos_engine.core.llm import LLMError, Message
+from kronos_engine.core.llm import Aside, LLMError, Message
 from kronos_engine.core.model_choice import ANTHROPIC_MODELS
 from kronos_engine.core.tools import ToolCall, ToolSpec
+from kronos_engine.llm.anthropic_web import log_web_use, web_note
 from kronos_engine.llm.anthropic_wire import echoed, split_system, wire_messages, wire_tools
 
 log = logging.getLogger(__name__)
@@ -68,12 +69,15 @@ class AnthropicProvider:
 
     async def stream(
         self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
-    ) -> AsyncIterator[str | ToolCall]:
+    ) -> AsyncIterator[str | ToolCall | Aside]:
         reply = _Reply()
         async for text in self._answer(messages, tools, reply):
             yield text
+        log_web_use(reply.content)
         if reply.stop_reason == "refusal":
             raise LLMError("Claude no quiso responder a eso.")
+        if note := web_note(reply.content):
+            yield Aside(note)
         calls = [part for part in reply.content if part.type == "tool_use"]
         if calls and reply.stop_reason == "max_tokens":
             raise LLMError("La respuesta de Claude quedó cortada; no se hizo ninguna acción.")

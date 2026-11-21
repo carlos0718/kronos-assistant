@@ -184,8 +184,9 @@ class CloseAppTool:
     spec = ToolSpec(
         "close_app",
         "Cierra una aplicación que está abierta en la computadora del usuario. "
-        "Kronos le pide la confirmación al usuario por su cuenta antes de cerrarla: "
-        "llamá a la acción directamente, sin preguntarle antes.",
+        "Una carpeta abierta es una ventana del Explorador de archivos: para cerrarla, "
+        "cerrá «Explorador de archivos». Kronos le pide la confirmación al usuario por su "
+        "cuenta antes de cerrarla: llamá a la acción directamente, sin preguntarle antes.",
         {
             "type": "object",
             "required": ["name"],
