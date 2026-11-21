@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { type Connection, getModel, type ModelStatus, setModel, setModelKey } from "../../engine/api";
 import { Group, Row, Segmented, Toggle, Value } from "../controls";
-import "./ProfileGroup.css";
-import "./ModelTab.css";
+import { KeyField } from "./KeyField";
 
 const LOCAL = "En tu computadora";
 const CLAUDE = "Claude";
@@ -22,7 +21,6 @@ const MODEL_BY_TASK = [
 
 export function ModelTab({ connection }: { connection: Connection | null }) {
   const [status, setStatus] = useState<ModelStatus | null>(null);
-  const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   // Valor de muestra: todavía no se guarda ni llega al motor.
   const [fallback, setFallback] = useState(false);
@@ -38,14 +36,17 @@ export function ModelTab({ connection }: { connection: Connection | null }) {
     };
   }, [connection]);
 
-  async function run(change: () => Promise<void>) {
-    if (!connection) return;
+  /** Hace el cambio y vuelve a leer el estado. Devuelve si salió bien. */
+  async function run(change: (connection: Connection) => Promise<void>): Promise<boolean> {
+    if (!connection) return false;
     setError(null);
     try {
-      await change();
+      await change(connection);
       setStatus(await getModel(connection));
+      return true;
     } catch (e) {
       setError(String((e as Error).message ?? e));
+      return false;
     }
   }
 
@@ -62,9 +63,7 @@ export function ModelTab({ connection }: { connection: Connection | null }) {
           <Segmented
             options={[LOCAL, CLAUDE]}
             value={claude ? CLAUDE : LOCAL}
-            onChange={(option) =>
-              connection && run(() => setModel(connection, option === CLAUDE ? "anthropic" : "ollama", ""))
-            }
+            onChange={(option) => run((c) => setModel(c, option === CLAUDE ? "anthropic" : "ollama", ""))}
           />
         </Row>
         {!claude && (
@@ -80,56 +79,23 @@ export function ModelTab({ connection }: { connection: Connection | null }) {
                 value={labelOf(chosen)}
                 onChange={(label) => {
                   const id = models.find((model) => labelOf(model) === label) ?? models[0];
-                  if (connection) run(() => setModel(connection, "anthropic", id));
+                  run((c) => setModel(c, "anthropic", id));
                 }}
               />
             </Row>
-            <div className="profile model-key">
-              <label>
-                <span>Clave de Anthropic</span>
-                <input
-                  type="password"
-                  value={key}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder={status?.has_key ? "Ya hay una clave guardada" : "sk-ant-…"}
-                  disabled={!connection}
-                  onChange={(event) => setKey(event.target.value)}
-                />
-              </label>
-              <div className="profile-actions">
-                <small>
-                  {status?.has_key
-                    ? "Guardada en el Administrador de credenciales de Windows, no en un archivo."
-                    : "Falta la clave: hasta que la cargues, Kronos no puede responder."}{" "}
-                  Lo que decís viaja a Anthropic, que lo cobra en tu cuenta.
-                </small>
-                {status?.has_key && (
-                  <button
-                    type="button"
-                    className="voice-btn"
-                    disabled={!connection}
-                    onClick={() => connection && run(() => setModelKey(connection, ""))}
-                  >
-                    Borrar
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="voice-btn"
-                  disabled={!connection || !key.trim()}
-                  onClick={() =>
-                    connection &&
-                    run(async () => {
-                      await setModelKey(connection, key);
-                      setKey("");
-                    })
-                  }
-                >
-                  Guardar
-                </button>
-              </div>
-            </div>
+            <KeyField
+              label="Clave de Anthropic"
+              placeholder="sk-ant-…"
+              hasKey={Boolean(status?.has_key)}
+              disabled={!connection}
+              onSave={(key) => run((c) => setModelKey(c, key))}
+              onDelete={() => run((c) => setModelKey(c, ""))}
+            >
+              {status?.has_key
+                ? "Guardada en el Administrador de credenciales de Windows, no en un archivo."
+                : "Falta la clave: hasta que la cargues, Kronos no puede responder."}{" "}
+              Lo que decís viaja a Anthropic, que lo cobra en tu cuenta.
+            </KeyField>
           </>
         )}
       </Group>
