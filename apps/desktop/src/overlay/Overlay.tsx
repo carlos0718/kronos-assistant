@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { STATE_LABEL, useEngine } from "../engine/useEngine";
 import { Orb } from "../shared/Orb";
+import { useChatShown } from "../shared/useChatShown";
 import { Confirm } from "./Confirm";
 import "./Overlay.css";
 
@@ -17,6 +18,7 @@ const LEAVE_MS = 250;
 export function Overlay() {
   const { state, transcript, reply, error, confirmation, send, clear } = useEngine();
   const [leaving, setLeaving] = useState(false);
+  const [chatShown, setChatShown] = useChatShown();
   const [summons, setSummons] = useState(0);
   // El aviso de invocación llega por un evento: se lee el estado más reciente sin volver a suscribirse.
   const stateRef = useRef(state);
@@ -68,13 +70,16 @@ export function Overlay() {
     };
   }, [state, summons, clear]);
 
-  const hasText = Boolean(transcript || reply || error || confirmation);
+  const said = Boolean(transcript || reply);
+  // Con el texto oculto se siguen mostrando la pregunta para aprobar y los
+  // errores: sin ellos el usuario no podría contestar ni sabría qué pasó.
+  const hasText = (chatShown && said) || Boolean(error || confirmation);
 
   return (
     <main className="overlay" data-leaving={leaving}>
       {hasText && (
         <section className="bubble" aria-live="polite">
-          {transcript && <p className="bubble-user">“{transcript}”</p>}
+          {chatShown && transcript && <p className="bubble-user">“{transcript}”</p>}
           {/* Mientras hay algo que aprobar, la pregunta ocupa el lugar de la respuesta. */}
           {confirmation ? (
             <Confirm
@@ -82,13 +87,45 @@ export function Overlay() {
               onAnswer={(approved) => send(approved ? "confirm" : "deny", { id: confirmation.id })}
             />
           ) : (
-            reply && <p className="bubble-reply">{reply}</p>
+            chatShown && reply && <p className="bubble-reply">{reply}</p>
           )}
           {error && <p className="bubble-error">{error}</p>}
         </section>
       )}
-      <Orb state={state} size={104} />
+      <div className="overlay-orb">
+        <Orb state={state} size={104} />
+        <button
+          type="button"
+          className="chat-toggle"
+          aria-pressed={chatShown}
+          aria-label={chatShown ? "Ocultar el texto" : "Mostrar el texto"}
+          title={chatShown ? "Ocultar el texto" : "Mostrar el texto"}
+          data-waiting={!chatShown && said}
+          onClick={() => setChatShown(!chatShown)}
+        >
+          <ChatIcon />
+        </button>
+      </div>
       <p className="overlay-state">{STATE_LABEL[state]}</p>
     </main>
+  );
+}
+
+/** Una burbuja de diálogo, como las del chat. */
+function ChatIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-7.5L7 20v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z" />
+    </svg>
   );
 }
