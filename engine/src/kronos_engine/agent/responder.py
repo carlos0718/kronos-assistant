@@ -1,9 +1,12 @@
 """La pieza que responde: arma la conversación, se la pasa al modelo y ejecuta lo que pide."""
 
-from collections.abc import AsyncGenerator, Callable
+import logging
+from collections.abc import AsyncGenerator, Callable, Sequence
 
 from kronos_engine.core.llm import Aside, LLMProvider, Message
 from kronos_engine.core.tools import Toolbox, ToolCall
+
+log = logging.getLogger(__name__)
 
 # Cuántas veces seguidas puede pedir acciones el modelo antes de tener que contestar.
 MAX_TOOL_ROUNDS = 5
@@ -57,6 +60,7 @@ class AgentResponder:
                 else:
                     reply += piece
                     yield piece
+            _log_round(reply, aside, calls)
             if tools is None or not offered or not calls:
                 # Una acción pedida sin que se la ofrecieran no se ejecuta.
                 turn.append(Message("assistant", reply, aside=aside))
@@ -72,3 +76,13 @@ class AgentResponder:
         # Solo se recuerda el turno si terminó: uno cortado o fallido no dejó respuesta.
         self._history.append(turn)
         del self._history[: -self._max_turns]
+
+
+def _log_round(reply: str, aside: str, calls: Sequence[ToolCall]) -> None:
+    # Es la conversación del usuario: solo con KRONOS_DEBUG=1, para diagnosticar.
+    if aside:
+        log.debug("Nota: %s", aside)
+    if reply:
+        log.debug("Contestó: %r", reply)
+    for call in calls:
+        log.debug("Pidió %s con %s.", call.name, dict(call.arguments))

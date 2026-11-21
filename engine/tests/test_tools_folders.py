@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -485,3 +486,54 @@ def test_una_palabra_parecida_tiene_que_empezar_igual(folders: FakeFolders) -> N
     make(folders, Folder.DOWNLOADS, "docs", "proyectos-finales")
 
     fails(folders, {"subfolders": ["apuntes de inglés"]})
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="los enlaces de carpeta son de Windows")
+def test_un_enlace_a_una_carpeta_apagada_no_la_abre(folders: FakeFolders) -> None:
+    # Windows deja en Documentos «Mis vídeos», un enlace oculto a Videos: con Videos
+    # apagada, Kronos abría el enlace y el explorador decía «acceso denegado».
+    import _winapi
+
+    videos = folders.folder_path(Folder.VIDEOS)
+    link = folders.folder_path(Folder.DOCUMENTS) / "Mis vídeos"
+    _winapi.CreateJunction(str(videos), str(link))
+    only_documents = FolderAccess(frozenset({Folder.DOCUMENTS}))
+
+    fails(folders, {"folder": "Documentos", "subfolders": ["Mis vídeos"]}, only_documents)
+    fails(folders, {"subfolders": ["vídeos"]}, only_documents)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="los enlaces de carpeta son de Windows")
+def test_un_enlace_a_una_carpeta_permitida_se_puede_abrir(folders: FakeFolders) -> None:
+    import _winapi
+
+    target = make(folders, Folder.DESKTOP, "proyectos")
+    link = folders.folder_path(Folder.DOCUMENTS) / "atajo a proyectos"
+    _winapi.CreateJunction(str(target), str(link))
+
+    assert "atajo a proyectos" in run(
+        folders, folder="Documentos", subfolders=["atajo a proyectos"]
+    )
+
+
+def test_desde_la_carpeta_personal_no_entra_a_una_carpeta_apagada(tmp_path: Path) -> None:
+    # Con Videos apagada, «la carpeta Videos de mi usuario» abría otra que se le parecía.
+    folders = NestedFolders(tmp_path)
+    make(folders, Folder.DOWNLOADS, "imagenes para videos")
+    access = FolderAccess(frozenset({Folder.HOME, Folder.DOWNLOADS}))
+
+    said = fails(folders, {"folder": "carpeta personal", "subfolders": ["Videos"]}, access)
+
+    assert "permiso" in said
+
+
+def test_una_carpeta_apagada_pedida_sin_decir_donde_avisa_y_nombra_las_otras(
+    folders: FakeFolders,
+) -> None:
+    make(folders, Folder.DOCUMENTS, "Videos")
+    access = FolderAccess(frozenset({Folder.DOCUMENTS, Folder.DOWNLOADS}))
+
+    said = fails(folders, {"subfolders": ["Videos"]}, access)
+
+    assert "permiso" in said
+    assert "Documentos" in said

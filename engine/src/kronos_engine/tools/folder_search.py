@@ -62,6 +62,11 @@ class Scope:
 _EVERYWHERE = Scope()
 
 
+def join_names(names: Sequence[str]) -> str:
+    """«a, b y c»."""
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + f" y {names[-1]}"
+
+
 def compact(name: str) -> str:
     """El nombre sin acentos, signos ni espacios: «Work Space» y «work-space» son «workspace»."""
     return normalize(ASIDE.sub(" ", name)).replace(" ", "")
@@ -128,10 +133,15 @@ def subfolders(path: Path, scope: Scope = _EVERYWHERE) -> list[Path]:
             continue
         try:
             info = entry.stat()
+            # Un enlace se mira a sí mismo: «Mis vídeos», en Documentos, es un enlace
+            # oculto a Videos, aunque Videos no esté oculta.
+            hidden = getattr(entry.lstat(), "st_file_attributes", 0) & _HIDDEN
+            # Y no lleva a una carpeta prohibida: sería entrar por la ventana.
+            target = path_key(entry.resolve()) if entry.is_symlink() or entry.is_junction() else ""
         except OSError:
             continue
-        hidden = getattr(info, "st_file_attributes", 0) & _HIDDEN
-        if stat.S_ISDIR(info.st_mode) and not hidden and path_key(entry) not in scope.skip:
+        skipped = path_key(entry) in scope.skip or target in scope.skip
+        if stat.S_ISDIR(info.st_mode) and not hidden and not skipped:
             found.append(entry)
     return sorted(found, key=lambda entry: entry.name.casefold())
 

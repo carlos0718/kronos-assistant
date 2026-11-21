@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Sequence
 
 import pytest
@@ -264,3 +265,33 @@ def test_la_nota_de_una_vuelta_con_acciones_queda_con_esa_vuelta() -> None:
     asyncio.run(ask(AgentResponder(provider, lambda: INSTRUCTIONS, tools=FakeToolbox()), "Hora"))
 
     assert provider.received[1][2] == Message("assistant", "", (ASK_TIME,), aside=note.text)
+
+
+def test_con_depuracion_el_registro_dice_lo_que_contesto_pidio_y_anoto(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Sin la respuesta en el registro no se ve por qué el modelo dudó de lo que buscó.
+    note = Aside("[Buscaste «Boca».]")
+    call = ToolCall("current_time", {"zona": "local"})
+    provider = FakeProvider([["Ya te digo.", note, call], ["Son las tres."]])
+    responder = AgentResponder(provider, lambda: INSTRUCTIONS, tools=FakeToolbox())
+
+    with caplog.at_level(logging.DEBUG, logger="kronos_engine"):
+        asyncio.run(ask(responder, "Hora"))
+
+    assert "Ya te digo." in caplog.text
+    assert "Son las tres." in caplog.text
+    assert "current_time" in caplog.text
+    assert "local" in caplog.text
+    assert "[Buscaste «Boca».]" in caplog.text
+
+
+def test_sin_depuracion_el_registro_no_guarda_la_conversacion(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = FakeProvider([["Son las tres."]])
+
+    with caplog.at_level(logging.INFO, logger="kronos_engine"):
+        asyncio.run(ask(AgentResponder(provider, lambda: INSTRUCTIONS), "Hora"))
+
+    assert "Son las tres." not in caplog.text
