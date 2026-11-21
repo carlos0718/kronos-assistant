@@ -1,4 +1,5 @@
 import asyncio
+import importlib
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -488,15 +489,20 @@ def test_una_palabra_parecida_tiene_que_empezar_igual(folders: FakeFolders) -> N
     fails(folders, {"subfolders": ["apuntes de inglés"]})
 
 
+def junction(target: Path, link: Path) -> None:
+    """Un enlace de carpeta de Windows, como «Mis vídeos» en Documentos."""
+    # `_winapi` solo existe en Windows: así mypy lo acepta también en Linux.
+    create = getattr(importlib.import_module("_winapi"), "CreateJunction")  # noqa: B009
+    create(str(target), str(link))
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="los enlaces de carpeta son de Windows")
 def test_un_enlace_a_una_carpeta_apagada_no_la_abre(folders: FakeFolders) -> None:
     # Windows deja en Documentos «Mis vídeos», un enlace oculto a Videos: con Videos
     # apagada, Kronos abría el enlace y el explorador decía «acceso denegado».
-    import _winapi
-
     videos = folders.folder_path(Folder.VIDEOS)
     link = folders.folder_path(Folder.DOCUMENTS) / "Mis vídeos"
-    _winapi.CreateJunction(str(videos), str(link))
+    junction(videos, link)
     only_documents = FolderAccess(frozenset({Folder.DOCUMENTS}))
 
     fails(folders, {"folder": "Documentos", "subfolders": ["Mis vídeos"]}, only_documents)
@@ -505,11 +511,9 @@ def test_un_enlace_a_una_carpeta_apagada_no_la_abre(folders: FakeFolders) -> Non
 
 @pytest.mark.skipif(sys.platform != "win32", reason="los enlaces de carpeta son de Windows")
 def test_un_enlace_a_una_carpeta_permitida_se_puede_abrir(folders: FakeFolders) -> None:
-    import _winapi
-
     target = make(folders, Folder.DESKTOP, "proyectos")
     link = folders.folder_path(Folder.DOCUMENTS) / "atajo a proyectos"
-    _winapi.CreateJunction(str(target), str(link))
+    junction(target, link)
 
     assert "atajo a proyectos" in run(
         folders, folder="Documentos", subfolders=["atajo a proyectos"]
