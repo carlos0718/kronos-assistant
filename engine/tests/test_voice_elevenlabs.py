@@ -19,8 +19,12 @@ from kronos_engine.voice.elevenlabs import (
 AUDIO = np.array([0.0, 0.5, -0.5, 1.5], dtype=np.float32)
 
 
+def key() -> str:
+    return "clave-de-prueba"
+
+
 def stt(handler: Callable[[httpx.Request], httpx.Response], **options: str) -> ElevenLabsStt:
-    return ElevenLabsStt("clave-de-prueba", transport=httpx.MockTransport(handler), **options)
+    return ElevenLabsStt(key, transport=httpx.MockTransport(handler), **options)
 
 
 def transcribe(recognizer: ElevenLabsStt, audio: np.ndarray = AUDIO) -> str:
@@ -74,11 +78,11 @@ def test_manda_el_audio_como_pcm_de_16_bits_recortando_lo_que_se_pasa() -> None:
     assert pcm.tolist() == [0, 16383, -16383, 32767]
 
 
-def test_una_clave_rechazada_dice_que_variable_revisar() -> None:
+def test_una_clave_rechazada_dice_donde_revisarla() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"detail": {"message": "Invalid API key"}})
 
-    with pytest.raises(ElevenLabsError, match="ELEVENLABS_API_KEY"):
+    with pytest.raises(ElevenLabsError, match="pestaña Voz"):
         transcribe(stt(handler))
 
 
@@ -106,18 +110,41 @@ def test_sin_conexion_lo_dice() -> None:
         transcribe(stt(handler))
 
 
-def test_sin_clave_no_se_puede_crear() -> None:
-    with pytest.raises(ElevenLabsError, match="ELEVENLABS_API_KEY"):
-        ElevenLabsStt("")
+def test_sin_clave_avisa_donde_cargarla_sin_llamar_a_elevenlabs() -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(200, json={"text": "Hola"})
+
+    recognizer = ElevenLabsStt(lambda: "", transport=httpx.MockTransport(handler))
+
+    with pytest.raises(ElevenLabsError, match="pestaña Voz"):
+        transcribe(recognizer)
+    assert calls == []
+
+
+def test_la_clave_se_lee_en_cada_frase() -> None:
+    keys = ["vieja"]
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request.headers["xi-api-key"])
+        return httpx.Response(200, json={"text": "Hola"})
+
+    recognizer = ElevenLabsStt(lambda: keys[-1], transport=httpx.MockTransport(handler))
+    transcribe(recognizer)
+    keys.append("nueva")
+    transcribe(recognizer)
+
+    assert sent == ["vieja", "nueva"]
 
 
 # Voz: texto → audio.
 
 
 def tts(handler: Callable[[httpx.Request], httpx.Response]) -> ElevenLabsTts:
-    return ElevenLabsTts(
-        "clave-de-prueba", "elevenlabs:abc123", transport=httpx.MockTransport(handler)
-    )
+    return ElevenLabsTts(key, "elevenlabs:abc123", transport=httpx.MockTransport(handler))
 
 
 def pcm(*values: int) -> bytes:
@@ -184,8 +211,10 @@ def voice_entry(voice_id: str, name: str, **labels: str) -> dict[str, object]:
     return {"voice_id": voice_id, "name": name, "labels": labels}
 
 
-def catalog(handler: Callable[[httpx.Request], httpx.Response]) -> ElevenLabsCatalog:
-    return ElevenLabsCatalog("clave-de-prueba", transport=httpx.MockTransport(handler))
+def catalog(
+    handler: Callable[[httpx.Request], httpx.Response], read_key: Callable[[], str] = key
+) -> ElevenLabsCatalog:
+    return ElevenLabsCatalog(read_key, transport=httpx.MockTransport(handler))
 
 
 def test_el_catalogo_ofrece_las_voces_de_la_cuenta() -> None:
@@ -254,6 +283,34 @@ def test_si_elevenlabs_falla_el_catalogo_queda_vacio_y_vuelve_a_intentar() -> No
     assert voices.voices() == []
     assert voices.voices() == []
     assert len(calls) == 2
+
+
+def test_sin_clave_el_catalogo_queda_vacio_sin_llamar_a_elevenlabs() -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(200, json={"voices": [voice_entry("a", "A")], "has_more": False})
+
+    assert catalog(handler, lambda: "").voices() == []
+    assert calls == []
+
+
+def test_con_otra_clave_el_catalogo_vuelve_a_preguntar() -> None:
+    keys = ["vieja"]
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request.headers["xi-api-key"])
+        return httpx.Response(200, json={"voices": [voice_entry("a", "A")], "has_more": False})
+
+    voices = catalog(handler, lambda: keys[-1])
+    voices.voices()
+    keys.append("nueva")
+    voices.voices()
+    voices.voices()
+
+    assert sent == ["vieja", "nueva"]
 
 
 def test_reconoce_las_voces_de_elevenlabs_por_su_id() -> None:

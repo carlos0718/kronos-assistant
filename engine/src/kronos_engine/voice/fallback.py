@@ -55,6 +55,10 @@ class Outage:
             self._pause,
         )
 
+    def reset(self) -> None:
+        """Vuelve a probar la nube en la próxima frase: por ejemplo, porque cambió la clave."""
+        self._failed_at = None
+
     def answered(self) -> None:
         if self._failed_at is not None:
             self._failed_at = None

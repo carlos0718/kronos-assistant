@@ -8,7 +8,7 @@ sea del proveedor que sea.
 from collections.abc import Callable
 from typing import Protocol
 
-from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
+from kronos_engine.core.voices import CloudKey, UnknownVoiceError, VoiceInfo
 from kronos_engine.voice.catalog import SAMPLES, VOICES
 from kronos_engine.voice.elevenlabs import is_elevenlabs_voice
 from kronos_engine.voice.speaker import Play, Speech
@@ -64,6 +64,8 @@ class SelectableVoices:
 
     `tts` es el que usa la conversación; `make_tts` crea uno aparte para
     probar una voz sin tocar la que está en uso. `remember` guarda la elección.
+    `key` es la clave de ElevenLabs, y `local_voice` la voz de la computadora a
+    la que se vuelve si se borra.
     """
 
     def __init__(
@@ -73,12 +75,17 @@ class SelectableVoices:
         play: Play,
         remember: Callable[[str], None],
         catalog: Callable[[], list[VoiceInfo]] = _piper_voices,
+        *,
+        key: CloudKey,
+        local_voice: str,
     ) -> None:
         self._tts = tts
         self._make_tts = make_tts
         self._play = play
         self._remember = remember
         self._catalog = catalog
+        self._key = key
+        self._local_voice = local_voice
         self._preview: SwitchableTts | None = None
 
     def available(self) -> list[VoiceInfo]:
@@ -103,6 +110,15 @@ class SelectableVoices:
             tts = self._preview
         speech = await tts.synthesize(SAMPLES[info.language])
         await self._play(speech.samples, speech.sample_rate)
+
+    def has_key(self) -> bool:
+        return bool(self._key.get())
+
+    async def set_key(self, key: str) -> None:
+        self._key.set(key)
+        # Sin clave, la voz de ElevenLabs en uso ya no podría hablar.
+        if not key.strip() and is_elevenlabs_voice(self._tts.voice):
+            await self.select(self._local_voice)
 
     def _find(self, voice_id: str) -> VoiceInfo:
         for info in self._catalog():

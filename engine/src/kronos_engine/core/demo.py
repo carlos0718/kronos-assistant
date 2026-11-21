@@ -155,6 +155,7 @@ class DemoVoices:
     def __init__(self) -> None:
         self._current = self.VOICES[0].id
         self.previewed: list[str] = []
+        self.key = ""
 
     def available(self) -> list[VoiceInfo]:
         return list(self.VOICES)
@@ -169,6 +170,12 @@ class DemoVoices:
     async def preview(self, voice_id: str) -> None:
         self._check(voice_id)
         self.previewed.append(voice_id)
+
+    def has_key(self) -> bool:
+        return bool(self.key)
+
+    async def set_key(self, key: str) -> None:
+        self.key = key.strip()
 
     def _check(self, voice_id: str) -> None:
         if voice_id not in {voice.id for voice in self.VOICES}:

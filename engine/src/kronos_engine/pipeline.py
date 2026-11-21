@@ -2,10 +2,8 @@
 
 import os
 import sys
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from kronos_engine.core.approval import ApprovalDesk
 from kronos_engine.core.choosing import Chooser
@@ -28,14 +26,14 @@ from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.tools import Tool
 from kronos_engine.core.voices import VoiceControl
-
-if TYPE_CHECKING:
-    from kronos_engine.core.voices import VoiceInfo
-    from kronos_engine.voice.elevenlabs import ElevenLabsStt, ElevenLabsTts
-    from kronos_engine.voice.fallback import FallbackStt, FallbackTts, Outage
-    from kronos_engine.voice.parakeet import ParakeetStt
-    from kronos_engine.voice.stt import WhisperStt
-    from kronos_engine.voice.tts import PiperTts
+from kronos_engine.voice.assembly import (
+    DEFAULT_STT_MODEL,
+    conversation_stt,
+    conversation_tts,
+    starting_voice,
+    tts_for,
+    voice_catalog,
+)
 
 # KRONOS_PIPELINE=demo usa las piezas simuladas, sin micrófono ni modelos.
 PIPELINE_ENV = "KRONOS_PIPELINE"
@@ -44,12 +42,9 @@ LANGUAGE_ENV = "KRONOS_LANGUAGE"
 # Modelo que transcribe: "parakeet", o un tamaño de whisper ("base", "small",
 # "medium"…) para volver al reconocedor anterior. Parakeet es mucho más rápido;
 # los tiempos están en docs/MEDICIONES.md. "elevenlabs" transcribe en la nube,
-# de pago, con la clave de ELEVENLABS_API_KEY: lo que oye el micrófono sale de
-# la computadora, incluso en reposo. PROVISORIO: irá en la configuración.
+# de pago, con la clave de la pestaña Voz: lo que oye el micrófono sale de la
+# computadora, incluso en reposo. PROVISORIO: irá en la configuración.
 STT_MODEL_ENV = "KRONOS_STT_MODEL"
-PARAKEET = "parakeet"
-ELEVENLABS = "elevenlabs"
-DEFAULT_STT_MODEL = PARAKEET
 
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
 MODEL_ENV = "KRONOS_LLM_MODEL"
@@ -74,92 +69,6 @@ class Parts:
     end_pause: EndPauseControl
     folder_access: FolderAccessControl
     model: ModelControl
-
-
-def stt_for(name: str, language: str) -> "ParakeetStt | WhisperStt | ElevenLabsStt":
-    """Elige el reconocedor de voz por el nombre de su modelo."""
-    # Se importan acá para que el modo demo no dependa de las librerías de voz.
-    from kronos_engine.voice.elevenlabs import KEY_ENV, ElevenLabsStt
-    from kronos_engine.voice.parakeet import ParakeetStt
-    from kronos_engine.voice.stt import WhisperStt
-
-    if name == ELEVENLABS:
-        return ElevenLabsStt(os.environ.get(KEY_ENV, ""), language=language)
-    if name == PARAKEET:
-        # Parakeet reconoce solo el idioma: no recibe el elegido.
-        return ParakeetStt()
-    return WhisperStt(name, language=language)
-
-
-def tts_for(voice: str) -> "PiperTts | ElevenLabsTts":
-    """El motor de voz que corresponde a una voz: ElevenLabs si su id lo dice, si no Piper."""
-    from kronos_engine.voice.elevenlabs import (
-        KEY_ENV,
-        TTS_MODEL,
-        TTS_MODEL_ENV,
-        ElevenLabsTts,
-        is_elevenlabs_voice,
-    )
-    from kronos_engine.voice.tts import PiperTts
-
-    if is_elevenlabs_voice(voice):
-        model = os.environ.get(TTS_MODEL_ENV, TTS_MODEL)
-        return ElevenLabsTts(os.environ.get(KEY_ENV, ""), voice, model=model)
-    return PiperTts(voice)
-
-
-def conversation_stt(
-    name: str, language: str, outage: "Outage"
-) -> "ParakeetStt | WhisperStt | ElevenLabsStt | FallbackStt":
-    """El reconocedor de la conversación: si es ElevenLabs, con Parakeet de respaldo."""
-    from kronos_engine.voice.fallback import FallbackStt
-
-    stt = stt_for(name, language)
-    if name != ELEVENLABS:
-        return stt
-    return FallbackStt(stt, stt_for(PARAKEET, language), outage)
-
-
-def conversation_tts(
-    backup_voice: str, outage: "Outage"
-) -> "Callable[[str], PiperTts | FallbackTts]":
-    """Crea el motor de voz de la conversación: las de ElevenLabs, con Piper de respaldo.
-
-    Probar una voz en la pestaña Voz no usa respaldo: si ElevenLabs falla, se ve el error.
-    """
-    from kronos_engine.voice.fallback import FallbackTts
-    from kronos_engine.voice.tts import PiperTts
-
-    def make(voice: str) -> "PiperTts | FallbackTts":
-        tts = tts_for(voice)
-        if isinstance(tts, PiperTts):
-            return tts
-        return FallbackTts(tts, PiperTts(backup_voice), outage)
-
-    return make
-
-
-def starting_voice(saved: str | None, default: str, has_key: bool) -> str:
-    """La voz con la que arranca: la elegida, salvo que sea de ElevenLabs y falte la clave."""
-    from kronos_engine.voice.elevenlabs import is_elevenlabs_voice
-
-    if not saved or (is_elevenlabs_voice(saved) and not has_key):
-        return default
-    return saved
-
-
-def voice_catalog() -> "Callable[[], list[VoiceInfo]]":
-    """Las voces para elegir: las de Piper, y las de ElevenLabs si está la clave."""
-    from kronos_engine.voice.catalog import VOICES
-    from kronos_engine.voice.elevenlabs import KEY_ENV, ElevenLabsCatalog
-
-    key = os.environ.get(KEY_ENV, "")
-    if not key:
-        return lambda: list(VOICES)
-    cloud = ElevenLabsCatalog(key)
-    # Se piden al arrancar, para que elegir una no espere a ElevenLabs.
-    threading.Thread(target=cloud.voices, daemon=True).start()
-    return lambda: [*VOICES, *cloud.voices()]
 
 
 def available_tools(
@@ -209,6 +118,7 @@ def build() -> Parts:
     from kronos_engine.agent.chooser import ModelChooser
     from kronos_engine.agent.instructions import instructions_for
     from kronos_engine.agent.responder import AgentResponder
+    from kronos_engine.config.elevenlabs_key import StoredElevenLabsKey, move_from_env
     from kronos_engine.config.end_pause import StoredEndPause
     from kronos_engine.config.folder_access import StoredFolderAccess
     from kronos_engine.config.follow_up import StoredFollowUp
@@ -238,15 +148,17 @@ def build() -> Parts:
 
     # Si ElevenLabs no responde, transcribir y hablar pasan juntos a la computadora.
     outage = Outage()
+    # Con una clave nueva se vuelve a probar ElevenLabs enseguida, sin esperar la pausa.
+    key = StoredElevenLabsKey(WindowsCredentials(), on_change=outage.reset)
+    move_from_env(key, os.environ.get(KEY_ENV, ""))
     # Los tres modelos se cargan mientras el usuario todavía no habló.
-    stt = conversation_stt(os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL), language, outage)
+    stt_model = os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL)
+    stt = conversation_stt(stt_model, language, outage, key.get)
     stt.preload()
     voice = starting_voice(
-        settings.voice or os.environ.get(VOICE_ENV),
-        default_voice,
-        has_key=bool(os.environ.get(KEY_ENV)),
+        settings.voice or os.environ.get(VOICE_ENV), default_voice, has_key=bool(key.get())
     )
-    tts = RoutedTts(voice, conversation_tts(default_voice, outage))
+    tts = RoutedTts(voice, conversation_tts(default_voice, outage, key.get))
     tts.preload()
     local = OllamaProvider(
         os.environ.get(MODEL_ENV, DEFAULT_MODEL),
@@ -291,7 +203,13 @@ def build() -> Parts:
         remember=lambda enabled: store.update(wake_word=enabled),
     )
     voices = SelectableVoices(
-        tts, tts_for, play, lambda voice: store.update(voice=voice), catalog=voice_catalog()
+        tts,
+        lambda voice: tts_for(voice, key.get),
+        play,
+        lambda voice: store.update(voice=voice),
+        catalog=voice_catalog(key.get),
+        key=key,
+        local_voice=default_voice,
     )
     return Parts(
         pipeline, voices, standby, profile, StoredFollowUp(store), end_pause, folder_access, choice

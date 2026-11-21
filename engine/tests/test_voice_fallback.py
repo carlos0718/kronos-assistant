@@ -114,6 +114,15 @@ def test_pasado_el_rato_vuelve_a_probar_la_nube() -> None:
     assert cloud.calls == 2
 
 
+def test_al_cambiar_la_clave_vuelve_a_probar_la_nube_enseguida() -> None:
+    outage = Outage(pause=60, clock=Clock())
+    outage.failed("Falta la clave de ElevenLabs")
+
+    outage.reset()
+
+    assert not outage.active()
+
+
 def test_avisa_en_el_registro_cuando_falla_y_cuando_vuelve(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
