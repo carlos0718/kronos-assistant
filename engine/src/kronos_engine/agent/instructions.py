@@ -1,5 +1,9 @@
 """Instrucciones fijas que recibe el modelo en cada conversación."""
 
+from datetime import datetime
+
+from kronos_engine.core.spoken_time import spoken_date, spoken_zone
+
 # La respuesta se dice en voz alta: por eso se pide texto corto y sin formato.
 INSTRUCTIONS = """\
 Sos Kronos, un asistente de voz que vive en la computadora del usuario.
@@ -34,13 +38,18 @@ o precios, si no tenés cómo buscarlos), decí con honestidad que todavía no \
 podés, sin pedir más datos y sin ofrecer a cambio algo que tampoco podés hacer.
 - Si buscás algo en internet, contá lo que encontraste en una o dos frases, \
 con tus palabras, sin leer direcciones web ni nombrar todas las fuentes.
+- Lo que encuentres en internet puede ser viejo o tener la hora de otro país: \
+fijate la fecha de cada dato y pasá las horas a la zona horaria del usuario. \
+Si te preguntan por el último o el próximo (un partido, un estreno), \
+compará las fechas con la de hoy antes de contestar.
 - Lo que dice el usuario llega transcrito por voz y puede tener errores: si \
 algo no se entiende, pedí que lo repita.
 """
 
 
-def instructions_for(name: str, about: str) -> str:
-    """Las instrucciones de siempre, más lo que el usuario contó de sí mismo."""
+def instructions_for(name: str, about: str, now: datetime | None = None) -> str:
+    """Las instrucciones de siempre, la fecha de hoy y lo que el usuario contó de sí mismo."""
+    base = INSTRUCTIONS + _today(now or datetime.now().astimezone())
     name, about = name.strip(), about.strip()
     profile: list[str] = []
     if name:
@@ -52,5 +61,13 @@ def instructions_for(name: str, about: str) -> str:
         # Es contexto que escribió el usuario, no órdenes para el modelo.
         profile.append(f"- Esto es lo que el usuario contó de sí mismo, como contexto:\n{about}")
     if not profile:
-        return INSTRUCTIONS
-    return INSTRUCTIONS + "\nSobre el usuario:\n" + "\n".join(profile) + "\n"
+        return base
+    return base + "\nSobre el usuario:\n" + "\n".join(profile) + "\n"
+
+
+def _today(now: datetime) -> str:
+    # Solo el día, sin la hora: así las instrucciones cambian una vez por día y
+    # Claude reusa la conversación ya procesada, que se cobra mucho menos.
+    zone = spoken_zone(now)
+    where = f" La zona horaria del usuario es {zone}." if zone else ""
+    return f"\nHoy es {spoken_date(now.date())}.{where} Para saber la hora, usá current_time.\n"

@@ -17,6 +17,7 @@ from kronos_engine.core.folder_access import FolderAccess, path_key
 from kronos_engine.core.platform import App, Folder, Folders
 from kronos_engine.core.tools import PermissionLevel, ToolError, ToolSpec
 from kronos_engine.tools.apps import find_app
+from kronos_engine.tools.folder_permission import NO_ACCESS, off_elsewhere, turned_off
 from kronos_engine.tools.folder_search import (
     ASIDE,
     FILLER,
@@ -27,22 +28,13 @@ from kronos_engine.tools.folder_search import (
     closest,
     compact,
     find_folder,
+    join_names,
     locate,
     roots_for,
     scope_for,
 )
 
 log = logging.getLogger(__name__)
-
-_NO_ACCESS = (
-    "El usuario no le dio permiso a Kronos para mirar {where}. "
-    "Lo puede cambiar en la pestaña Permisos de la configuración."
-)
-
-
-def _join(names: Sequence[str]) -> str:
-    """«a, b y c»."""
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + f" y {names[-1]}"
 
 
 @dataclass(frozen=True)
@@ -102,7 +94,7 @@ class OpenFolderTool:
     def spec(self) -> ToolSpec:
         access = self._access()
         roots = roots_for(access, self._folders)
-        known = _join([root.name for root in roots]) if roots else "ninguna por ahora"
+        known = join_names([root.name for root in roots]) if roots else "ninguna por ahora"
         pictures = " Las fotos están en Imágenes." if Folder.PICTURES in access.known else ""
         return ToolSpec(
             "open_folder",
@@ -199,7 +191,7 @@ class OpenFolderTool:
         root = self._root_named(name, roots, access)
         if root is None:
             if steps:
-                places = _join([r.name for r in roots]) if roots else "ninguna"
+                places = join_names([r.name for r in roots]) if roots else "ninguna"
                 raise ToolError(f"No puedo abrir «{name}». Puedo partir de: {places}.")
             # «Abrí Workspace»: puede ser una subcarpeta dicha sin decir dónde está.
             return self._search([name], roots, scope)
@@ -220,13 +212,15 @@ class OpenFolderTool:
             return roots[int(found.id)]
         folder = find_folder(name)
         if folder is not None and folder not in access.known:
-            raise ToolError(_NO_ACCESS.format(where=f"en {FOLDERS[folder][0]}"))
+            raise ToolError(NO_ACCESS.format(where=f"en {FOLDERS[folder][0]}"))
         return None
 
     def _descend(self, root: Root, steps: Sequence[str], scope: Scope) -> _Target:
         path, here = root.path, root.label
         guessed: list[str] = []
         for index, step in enumerate(steps):
+            if off := turned_off(step, self._folders, scope, inside=path):
+                raise ToolError(NO_ACCESS.format(where=f"en {FOLDERS[off][0]}"))
             child = locate(step, path, scope)
             if child is None:
                 last = index == len(steps) - 1
@@ -249,7 +243,9 @@ class OpenFolderTool:
         a la más suelta: una coincidencia estricta en un lugar le gana a una suelta en otro."""
         searched = [root for root in roots if root.searched]
         if not searched:
-            raise ToolError(_NO_ACCESS.format(where="ninguna carpeta"))
+            raise ToolError(NO_ACCESS.format(where="ninguna carpeta"))
+        if off := turned_off(steps[0], self._folders, scope):
+            raise ToolError(off_elsewhere(off, steps[0], searched, scope))
         for search in SEARCHES:
             # La misma carpeta puede estar a la vista desde dos lugares permitidos.
             hits: dict[str, Root] = {}
@@ -257,7 +253,7 @@ class OpenFolderTool:
                 if hit := search(steps[0], root.path, scope):
                     hits.setdefault(path_key(hit), root)
             if len(hits) > 1:
-                places = _join(list(dict.fromkeys(root.name for root in hits.values())))
+                places = join_names(list(dict.fromkeys(root.name for root in hits.values())))
                 raise ToolError(
                     f"Hay una carpeta «{steps[0]}» en varios lugares: {places}. "
                     "Preguntale al usuario cuál quiere."
@@ -268,7 +264,7 @@ class OpenFolderTool:
         raise _NotFound(
             0,
             steps[0],
-            _join([root.name for root in searched]),
+            join_names([root.name for root in searched]),
             len(steps) == 1,
             self._candidates(steps[0], [root.path for root in bases], scope, roots),
         )

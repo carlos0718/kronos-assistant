@@ -7,7 +7,7 @@ import anthropic
 import httpx2
 import pytest
 
-from kronos_engine.core.llm import LLMError, Message
+from kronos_engine.core.llm import Aside, LLMError, Message
 from kronos_engine.core.tools import ToolCall, ToolSpec
 from kronos_engine.llm.anthropic import AnthropicProvider
 
@@ -249,7 +249,10 @@ def test_si_la_busqueda_queda_en_pausa_la_sigue() -> None:
         collect(AnthropicProvider("sk", client=client), [Message("user", "¿Clima?")], [CLOCK])
     )
 
-    assert pieces == ["Busco. ", "Hace veinte grados."]
+    assert [piece for piece in pieces if isinstance(piece, str)] == [
+        "Busco. ",
+        "Hace veinte grados.",
+    ]
     # Se reenvía lo que mandó Claude, sin un mensaje del usuario de por medio.
     assert client.requests[1]["messages"][-1] == {
         "role": "assistant",
@@ -302,3 +305,47 @@ def test_un_rechazo_sin_herramientas_web_no_se_repite() -> None:
         asyncio.run(collect(AnthropicProvider("sk", client=client), [Message("user", "?")]))
 
     assert len(client.requests) == 1
+
+
+def _searched(query: str) -> list[Any]:
+    return [
+        SimpleNamespace(
+            type="server_tool_use", id="srvtoolu_1", name="web_search", input={"query": query}
+        ),
+        SimpleNamespace(
+            type="web_search_tool_result",
+            tool_use_id="srvtoolu_1",
+            content=[
+                SimpleNamespace(
+                    type="web_search_result",
+                    title="Boca ganó",
+                    url="https://ole.com.ar/x",
+                    page_age=None,
+                )
+            ],
+        ),
+    ]
+
+
+def test_si_busco_en_internet_deja_una_nota_que_no_se_dice() -> None:
+    # Sin la nota, en el turno siguiente Claude no sabe de dónde salió lo que contestó.
+    content = [*_searched("partido de Boca"), text("Ganó Boca.")]
+    client = FakeClient(FakeStream(["Ganó Boca."], content, "end_turn"))
+
+    pieces = asyncio.run(
+        collect(AnthropicProvider("sk", client=client), [Message("user", "¿Boca?")], [CLOCK])
+    )
+
+    assert pieces[0] == "Ganó Boca."
+    assert isinstance(pieces[1], Aside)
+    assert "«partido de Boca»" in pieces[1].text
+
+
+def test_sin_buscar_no_deja_nota() -> None:
+    pieces = asyncio.run(
+        collect(
+            AnthropicProvider("sk", client=FakeClient(answer("Hola."))), [Message("user", "Hola")]
+        )
+    )
+
+    assert not any(isinstance(piece, Aside) for piece in pieces)

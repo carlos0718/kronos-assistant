@@ -53,6 +53,8 @@ class PermissionGate:
             result = await tool.run(call.arguments)
         except ToolError as exc:
             log.info("Acción %s ejecutada: no se pudo hacer.", call.name)
+            # El motivo puede nombrar archivos o carpetas del usuario: solo con KRONOS_DEBUG=1.
+            log.debug("Motivo: %s", exc)
             return f"No se pudo: {exc}"
         except Exception:
             # Un fallo de la acción no corta la conversación: el modelo lo cuenta.
@@ -74,6 +76,7 @@ class PermissionGate:
                 summary = await tool.describe(call.arguments)
             except ToolError as exc:
                 # Ya se sabe que no se puede: no se molesta al usuario con la pregunta.
+                log.debug("Motivo: %s", exc)
                 return self._reject(call, "no se puede hacer", f"No se pudo: {exc}")
             request = ApprovalRequest(call.name, summary)
             if not await self._approver.confirm(request):

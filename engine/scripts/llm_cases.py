@@ -40,6 +40,8 @@ CASES = [
     Case("Abrí el blog de notas.", "open_app", ("bloc", "blog")),
     Case("Abrí Spotify.", "open_app", ("spotify",)),
     Case("Cerrá el bloc de notas.", "close_app", ("bloc",)),
+    # Claude contestaba que solo podía abrir carpetas.
+    Case("Cerrá la carpeta de descargas.", "close_app", ("explorador",)),
     Case("Abrí la carpeta Documentos.", "open_folder", ("document",)),
     Case("Abrí la carpeta de mi portafolio.", "open_folder", ("portafolio", "portfolio")),
     # Con «aplicación», qwen3:8b a veces abre aplicaciones en vez de carpetas.
