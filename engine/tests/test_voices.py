@@ -32,9 +32,21 @@ class FakeTts:
         return Speech(np.zeros(4, dtype=np.float32), 22_050)
 
 
+class MemoryKey:
+    def __init__(self) -> None:
+        self.value = ""
+
+    def get(self) -> str:
+        return self.value
+
+    def set(self, key: str) -> None:
+        self.value = key.strip()
+
+
 class Setup:
-    def __init__(self, cloud: list[VoiceInfo] | None = None) -> None:
-        self.tts = FakeTts(DANIELA)
+    def __init__(self, cloud: list[VoiceInfo] | None = None, voice: str = DANIELA) -> None:
+        self.tts = FakeTts(voice)
+        self.key = MemoryKey()
         self.previews: list[FakeTts] = []
         self.played = 0
         self.remembered: list[str] = []
@@ -44,6 +56,8 @@ class Setup:
             self._play,
             self.remembered.append,
             catalog=lambda: [*VOICES, *(cloud or [])],
+            key=self.key,
+            local_voice=DANIELA,
         )
 
     def _make(self, voice: str) -> FakeTts:
@@ -90,6 +104,37 @@ def test_ofrece_tambien_las_voces_de_la_nube() -> None:
 
     assert setup.voices.current() == VALENTINA
     assert setup.remembered == [VALENTINA]
+
+
+def test_guardar_la_clave_de_elevenlabs_se_informa_sin_devolverla() -> None:
+    setup = Setup()
+    assert not setup.voices.has_key()
+
+    asyncio.run(setup.voices.set_key("sk_abc"))
+
+    assert setup.key.value == "sk_abc"
+    assert setup.voices.has_key()
+
+
+def test_borrar_la_clave_con_una_voz_de_elevenlabs_vuelve_a_la_de_la_computadora() -> None:
+    setup = Setup(CLOUD, voice=VALENTINA)
+    setup.key.value = "sk_abc"
+
+    asyncio.run(setup.voices.set_key(""))
+
+    assert not setup.voices.has_key()
+    assert setup.voices.current() == DANIELA
+    assert setup.remembered == [DANIELA]
+
+
+def test_borrar_la_clave_con_una_voz_de_piper_la_deja_como_estaba() -> None:
+    setup = Setup(CLOUD, voice=DAVE)
+    setup.key.value = "sk_abc"
+
+    asyncio.run(setup.voices.set_key(""))
+
+    assert setup.voices.current() == DAVE
+    assert setup.remembered == []
 
 
 def test_probar_una_voz_dice_la_muestra_sin_cambiar_la_voz_en_uso() -> None:

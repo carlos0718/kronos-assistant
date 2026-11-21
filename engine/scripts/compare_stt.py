@@ -12,8 +12,9 @@ usuario en la pestaña Voz. Las guarda fuera del repositorio, en
 `comparar` pasa cada grabación por Parakeet, whisper `small` con el español
 fijo y Scribe de ElevenLabs, e informa cuántas acertó cada uno y cuánto tardó.
 ElevenLabs corre en la nube y es de pago: las grabaciones salen de la
-computadora. Se usa solo si está la clave: en la variable ELEVENLABS_API_KEY o
-en el archivo `.env` de la raíz del proyecto (ver `.env.example`).
+computadora. Se usa solo si está la clave: la que se cargó en la pestaña Voz o,
+si no hay, la de ELEVENLABS_API_KEY (en la terminal o en el `.env` de la raíz
+del proyecto, ver `.env.example`).
 """
 
 import argparse
@@ -29,10 +30,12 @@ from pathlib import Path
 
 import numpy as np
 
-from kronos_engine import pipeline
+from kronos_engine.config.elevenlabs_key import saved_or_env
 from kronos_engine.config.env_file import load_env_file, project_env_file
 from kronos_engine.config.settings import SettingsStore
+from kronos_engine.platform.windows.credentials import WindowsCredentials
 from kronos_engine.voice import SAMPLE_RATE
+from kronos_engine.voice.assembly import PARAKEET, stt_for
 from kronos_engine.voice.elevenlabs import KEY_ENV, MODEL, ElevenLabsError, ElevenLabsStt
 from kronos_engine.voice.endpointing import EndpointConfig
 from kronos_engine.voice.listener import Stt, capture
@@ -134,15 +137,15 @@ class Outcome:
 
 
 def recognizer_for(name: str) -> tuple[str, Stt] | None:
+    key = saved_or_env(WindowsCredentials(), os.environ.get(KEY_ENV, ""))
     if name == "parakeet":
-        return "Parakeet v3", pipeline.stt_for(pipeline.PARAKEET, "es")
+        return "Parakeet v3", stt_for(PARAKEET, "es", lambda: key)
     if name == "elevenlabs":
-        key = os.environ.get(KEY_ENV, "")
         if not key:
-            print(f"ElevenLabs queda afuera: falta la clave en {KEY_ENV}.")
+            print(f"ElevenLabs queda afuera: falta la clave (pestaña Voz o {KEY_ENV}).")
             return None
-        return f"ElevenLabs {MODEL}", ElevenLabsStt(key)
-    return f"whisper {name} (es)", pipeline.stt_for(name, "es")
+        return f"ElevenLabs {MODEL}", ElevenLabsStt(lambda: key)
+    return f"whisper {name} (es)", stt_for(name, "es", lambda: key)
 
 
 async def run_recognizer(stt: Stt, clips: list[np.ndarray]) -> Outcome:
