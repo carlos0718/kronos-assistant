@@ -22,6 +22,18 @@ class UnknownVoiceError(ValueError):
     """Se pidió una voz que no está en el catálogo."""
 
 
+class CloudKey(Protocol):
+    """La clave de ElevenLabs que cargó el usuario."""
+
+    def get(self) -> str:
+        """La clave, o "" si no hay."""
+        ...
+
+    def set(self, key: str) -> None:
+        """Guarda la clave; vacía, la borra."""
+        ...
+
+
 class VoiceControl(Protocol):
     def available(self) -> list[VoiceInfo]:
         """Las voces que se pueden elegir."""
@@ -37,4 +49,15 @@ class VoiceControl(Protocol):
 
     async def preview(self, voice_id: str) -> None:
         """Dice una frase de muestra con esa voz, sin cambiar la voz en uso."""
+        ...
+
+    def has_key(self) -> bool:
+        """Si hay una clave de ElevenLabs guardada. La clave nunca sale del motor."""
+        ...
+
+    async def set_key(self, key: str) -> None:
+        """Guarda la clave de ElevenLabs; vacía, la borra.
+
+        Sin clave, si la voz en uso era de ElevenLabs, vuelve a una de la computadora.
+        """
         ...

@@ -25,12 +25,16 @@ import psutil
 
 from kronos_engine import pipeline
 from kronos_engine.agent.instructions import instructions_for
+from kronos_engine.config.elevenlabs_key import saved_or_env
 from kronos_engine.config.settings import SettingsStore
 from kronos_engine.core.llm import LLMError, Message
 from kronos_engine.core.sentences import SentenceSplitter
 from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
+from kronos_engine.platform.windows.credentials import WindowsCredentials
 from kronos_engine.voice import FRAME_SAMPLES, SAMPLE_RATE
+from kronos_engine.voice.assembly import DEFAULT_STT_MODEL, PARAKEET, stt_for, tts_for
 from kronos_engine.voice.catalog import DEFAULT_VOICES
+from kronos_engine.voice.elevenlabs import KEY_ENV
 from kronos_engine.voice.endpointing import EndpointConfig
 from kronos_engine.voice.speaker import Speech
 from kronos_engine.voice.vad import SileroVad
@@ -155,17 +159,18 @@ async def run(rounds: int) -> None:
     language = os.environ.get(pipeline.LANGUAGE_ENV, "es")
     settings = SettingsStore().load()
     voice = settings.voice or os.environ.get(pipeline.VOICE_ENV) or DEFAULT_VOICES[language]
-    stt_model = os.environ.get(pipeline.STT_MODEL_ENV, pipeline.DEFAULT_STT_MODEL)
+    stt_model = os.environ.get(pipeline.STT_MODEL_ENV, DEFAULT_STT_MODEL)
+    key = saved_or_env(WindowsCredentials(), os.environ.get(KEY_ENV, ""))
     llm_model = os.environ.get(pipeline.MODEL_ENV, pipeline.DEFAULT_MODEL)
     url = os.environ.get(pipeline.OLLAMA_URL_ENV, DEFAULT_URL)
     process = psutil.Process()
 
     print(f"Midiendo {rounds} rondas; tarda alrededor de un minuto…\n", flush=True)
     # Con una voz de ElevenLabs también mide la voz en la nube.
-    tts = pipeline.tts_for(voice)
+    tts = tts_for(voice, lambda: key)
     with measured() as tts_load:
         question = to_16k(await tts.synthesize(QUESTIONS[language]))
-    stt = pipeline.stt_for(stt_model, language)
+    stt = stt_for(stt_model, language, lambda: key)
     with measured() as stt_load:
         text = await stt.transcribe(question)
     provider = OllamaProvider(llm_model, base_url=url)
@@ -205,7 +210,7 @@ async def run(rounds: int) -> None:
 
     print(f"Equipo: {cpu_name()} · {cores} núcleos ({threads} hilos) · {num(ram, 0)} GB de memoria")
     print(f"Sistema: {platform.system()} {platform.release()}")
-    stt_name = stt_model if stt_model == pipeline.PARAKEET else f"whisper {stt_model}"
+    stt_name = stt_model if stt_model == PARAKEET else f"whisper {stt_model}"
     print(f"Piezas: {stt_name} · {llm_model} en Ollama · voz {voice}")
     print(f"Mediana de {rounds} rondas.\n")
     print("| Paso | Tiempo | Procesador del motor |")

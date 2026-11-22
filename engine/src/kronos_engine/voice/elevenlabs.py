@@ -8,9 +8,13 @@ Corre en la nube y es de pago: el audio y el texto salen de la computadora.
 - `ElevenLabsTts` habla con una voz de la cuenta del usuario, y
   `ElevenLabsCatalog` lista esas voces para elegirlas en la pestaña Voz. Sus ids
   llevan el prefijo `elevenlabs:` para distinguirlas de las de Piper.
+
+La clave la carga el usuario en la pestaña Voz. Los tres la leen en cada pedido
+(`key` devuelve "" si no hay): guardarla o borrarla se nota sin reiniciar.
 """
 
 import logging
+from collections.abc import Callable
 from typing import Any, Literal
 
 import httpx
@@ -23,6 +27,8 @@ log = logging.getLogger(__name__)
 
 URL = "https://api.elevenlabs.io"
 MODEL = "scribe_v3"
+# Donde la ponía el `.env` antes de cargarse en la pestaña Voz. Hoy la leen
+# `engine/scripts/compare_stt.py` y el motor al arrancar, para pasarla de lugar.
 KEY_ENV = "ELEVENLABS_API_KEY"
 # El más expresivo de los rápidos (~100 ms). eleven_flash_v2_5 cuesta la mitad.
 TTS_MODEL = "eleven_v4_turbo"
@@ -45,9 +51,12 @@ def is_elevenlabs_voice(voice: str) -> bool:
     return voice.startswith(VOICE_PREFIX)
 
 
-def _check_key(api_key: str) -> None:
+def _auth(key: Callable[[], str]) -> dict[str, str]:
+    """El encabezado con la clave en uso. Sin clave, ni se llama a ElevenLabs."""
+    api_key = key()
     if not api_key:
-        raise ElevenLabsError(f"Falta la clave de ElevenLabs en {KEY_ENV}.")
+        raise ElevenLabsError("Falta la clave de ElevenLabs: cargala en la pestaña Voz.")
+    return {"xi-api-key": api_key}
 
 
 def _pcm16(audio: np.ndarray) -> bytes:
@@ -58,7 +67,9 @@ def _pcm16(audio: np.ndarray) -> bytes:
 
 def _failure(response: httpx.Response) -> ElevenLabsError:
     if response.status_code == httpx.codes.UNAUTHORIZED:
-        return ElevenLabsError(f"ElevenLabs rechazó la clave. Revisá {KEY_ENV} y sus permisos.")
+        return ElevenLabsError(
+            "ElevenLabs rechazó la clave. Revisá la de la pestaña Voz y sus permisos."
+        )
     try:
         detail = response.json().get("detail")
     except (ValueError, AttributeError):
@@ -70,15 +81,16 @@ def _failure(response: httpx.Response) -> ElevenLabsError:
     )
 
 
-def _async_client(api_key: str, transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        base_url=URL, headers={"xi-api-key": api_key}, timeout=_TIMEOUT, transport=transport
-    )
+def _async_client(transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
+    return httpx.AsyncClient(base_url=URL, timeout=_TIMEOUT, transport=transport)
 
 
-async def _post(client: httpx.AsyncClient, path: str, **request: Any) -> httpx.Response:
+async def _post(
+    client: httpx.AsyncClient, path: str, key: Callable[[], str], **request: Any
+) -> httpx.Response:
+    headers = _auth(key)
     try:
-        response = await client.post(path, **request)
+        response = await client.post(path, headers=headers, **request)
     except httpx.ConnectError as exc:
         raise ElevenLabsError("No se pudo conectar con ElevenLabs.") from exc
     except httpx.TimeoutException as exc:
@@ -97,26 +109,28 @@ class ElevenLabsStt:
 
     def __init__(
         self,
-        api_key: str,
+        key: Callable[[], str],
         model: str = MODEL,
         language: str = "es",
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        _check_key(api_key)
+        self._key = key
         self._form = {
             "model_id": model,
             "language_code": language,
             "tag_audio_events": "false",
             "file_format": "pcm_s16le_16",
         }
-        self._client = _async_client(api_key, transport)
+        self._client = _async_client(transport)
 
     def preload(self) -> None:
         """No hay nada que cargar: el modelo corre en los servidores de ElevenLabs."""
 
     async def transcribe(self, audio: np.ndarray) -> str:
         files = {"file": ("frase.pcm", _pcm16(audio), "application/octet-stream")}
-        response = await _post(self._client, "/v1/speech-to-text", data=self._form, files=files)
+        response = await _post(
+            self._client, "/v1/speech-to-text", self._key, data=self._form, files=files
+        )
         return str(response.json().get("text", "")).strip()
 
     async def aclose(self) -> None:
@@ -128,17 +142,17 @@ class ElevenLabsTts:
 
     def __init__(
         self,
-        api_key: str,
+        key: Callable[[], str],
         voice: str,
         model: str = TTS_MODEL,
         language: str = "es",
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        _check_key(api_key)
+        self._key = key
         self._voice = voice
         self._model = model
         self._language = language
-        self._client = _async_client(api_key, transport)
+        self._client = _async_client(transport)
 
     @property
     def voice(self) -> str:
@@ -155,6 +169,7 @@ class ElevenLabsTts:
         response = await _post(
             self._client,
             f"/v1/text-to-speech/{voice_id}",
+            self._key,
             params={"output_format": _TTS_FORMAT},
             json={"text": text, "model_id": self._model, "language_code": self._language},
         )
@@ -201,31 +216,36 @@ def _voice_info(entry: dict[str, Any]) -> VoiceInfo:
 class ElevenLabsCatalog:
     """Las voces de la cuenta del usuario: las de fábrica y las que sumó desde la biblioteca.
 
-    Las pide una vez y las recuerda. Si ElevenLabs falla, no ofrece ninguna y
-    vuelve a pedirlas la próxima vez.
+    Las pide una vez por clave y las recuerda. Sin clave no ofrece ninguna. Si
+    ElevenLabs falla, tampoco, y vuelve a pedirlas la próxima vez.
     """
 
-    def __init__(self, api_key: str, transport: httpx.BaseTransport | None = None) -> None:
-        _check_key(api_key)
-        self._api_key = api_key
+    def __init__(
+        self, key: Callable[[], str], transport: httpx.BaseTransport | None = None
+    ) -> None:
+        self._key = key
         self._transport = transport
-        self._voices: list[VoiceInfo] | None = None
+        # Las voces y la clave con que se pidieron.
+        self._voices: tuple[str, list[VoiceInfo]] | None = None
 
     def voices(self) -> list[VoiceInfo]:
-        if self._voices is None:
+        api_key = self._key()
+        if not api_key:
+            return []
+        if self._voices is None or self._voices[0] != api_key:
             try:
-                self._voices = self._fetch()
+                self._voices = (api_key, self._fetch(api_key))
             except (ElevenLabsError, httpx.HTTPError) as exc:
                 log.warning("No se pudieron listar las voces de ElevenLabs: %s", exc)
                 return []
-        return list(self._voices)
+        return list(self._voices[1])
 
-    def _fetch(self) -> list[VoiceInfo]:
+    def _fetch(self, api_key: str) -> list[VoiceInfo]:
         found: list[VoiceInfo] = []
         params: dict[str, str | int] = {"page_size": 100}
         with httpx.Client(
             base_url=URL,
-            headers={"xi-api-key": self._api_key},
+            headers={"xi-api-key": api_key},
             timeout=_TIMEOUT,
             transport=self._transport,
         ) as client:

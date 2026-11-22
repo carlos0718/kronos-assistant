@@ -1,0 +1,4 @@
+/* Campo de una clave de la nube: usa los estilos del perfil (ProfileGroup.css), con aire arriba. */
+.key-field {
+  margin-top: 12px;
+}
