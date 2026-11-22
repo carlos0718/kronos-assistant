@@ -26,6 +26,7 @@ def test_las_voces_exigen_token(client: TestClient) -> None:
     assert client.get("/voices").status_code == 401
     assert client.put("/voices/current", json={"id": "demo-luis"}).status_code == 401
     assert client.post("/voices/demo-luis/preview").status_code == 401
+    assert client.put("/voices/key", json={"key": "x"}).status_code == 401
 
 
 def test_lista_las_voces_y_dice_cual_esta_en_uso(client: TestClient) -> None:
@@ -34,6 +35,7 @@ def test_lista_las_voces_y_dice_cual_esta_en_uso(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json() == {
         "current": "demo-ana",
+        "has_key": False,
         "voices": [
             {**COMMON, "id": "demo-ana", "name": "Ana", "gender": "female"},
             {**COMMON, "id": "demo-luis", "name": "Luis", "gender": "male"},
@@ -62,6 +64,32 @@ def test_probar_una_voz_la_hace_sonar(client: TestClient, voices: DemoVoices) ->
 
 def test_probar_una_voz_que_no_existe_devuelve_404(client: TestClient) -> None:
     assert client.post("/voices/nadie/preview", headers=AUTH).status_code == 404
+
+
+def test_la_clave_de_elevenlabs_se_guarda_y_no_vuelve(
+    client: TestClient, voices: DemoVoices
+) -> None:
+    response = client.put("/voices/key", headers=AUTH, json={"key": "sk_secreta"})
+
+    assert response.status_code == 204
+    assert voices.key == "sk_secreta"
+    read = client.get("/voices", headers=AUTH)
+    assert read.json()["has_key"] is True
+    assert "sk_secreta" not in read.text
+
+
+def test_una_clave_vacia_borra_la_de_elevenlabs(client: TestClient, voices: DemoVoices) -> None:
+    voices.key = "sk_secreta"
+
+    client.put("/voices/key", headers=AUTH, json={"key": ""})
+
+    assert client.get("/voices", headers=AUTH).json()["has_key"] is False
+
+
+def test_una_clave_de_elevenlabs_enorme_se_rechaza(client: TestClient) -> None:
+    sent = {"key": "x" * 5000}
+
+    assert client.put("/voices/key", headers=AUTH, json=sent).status_code == 422
 
 
 def test_la_interfaz_puede_pedir_desde_su_origen(client: TestClient) -> None:

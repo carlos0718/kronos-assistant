@@ -8,9 +8,12 @@ import {
   selectVoice,
   setEndPause,
   setFollowUp,
+  setVoiceKey,
   type Voice,
+  type VoiceList,
 } from "../../engine/api";
 import { Group, Row, Slider, Value } from "../controls";
+import { KeyField } from "./KeyField";
 import "./VoiceTab.css";
 
 // Las voces de ElevenLabs van primero y aparte: hablan cualquier idioma y son de pago.
@@ -50,8 +53,9 @@ const decimal = new Intl.NumberFormat("es", { minimumFractionDigits: 1, maximumF
 const SAVE_DELAY_MS = 300;
 
 export function VoiceTab({ connection }: { connection: Connection | null }) {
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [current, setCurrent] = useState("");
+  // Las voces, la que está en uso y si hay clave de ElevenLabs: llegan juntas del motor.
+  const [list, setList] = useState<VoiceList>({ current: "", has_key: false, voices: [] });
+  const { voices, current, has_key: hasKey } = list;
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Hasta que el motor informa la espera guardada, el deslizador queda apagado.
@@ -65,10 +69,9 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
     if (!connection) return;
     let stale = false;
     Promise.all([listVoices(connection), getFollowUp(connection), getEndPause(connection)])
-      .then(([list, seconds, milliseconds]) => {
+      .then(([voiceList, seconds, milliseconds]) => {
         if (stale) return;
-        setVoices(list.voices);
-        setCurrent(list.current);
+        setList(voiceList);
         setFollowUpSeconds(seconds);
         setEndPauseSeconds(milliseconds / 1000);
       })
@@ -77,6 +80,20 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
       stale = true;
     };
   }, [connection]);
+
+  /** Guarda o borra la clave y vuelve a pedir las voces: aparecen o se van las de ElevenLabs. */
+  async function saveKey(key: string): Promise<boolean> {
+    if (!connection) return false;
+    setError(null);
+    try {
+      await setVoiceKey(connection, key);
+      setList(await listVoices(connection));
+      return true;
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+      return false;
+    }
+  }
 
   function changeFollowUp(seconds: number) {
     if (!connection) return;
@@ -106,7 +123,7 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
     setError(null);
     try {
       await selectVoice(connection, id);
-      setCurrent(id);
+      setList((before) => ({ ...before, current: id }));
     } catch (e) {
       setError(String((e as Error).message ?? e));
     }
@@ -134,6 +151,23 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
           <Row label="Voz" text="Las voces se cargan cuando el motor está conectado.">
             <Value>Sin conexión</Value>
           </Row>
+        </Group>
+      )}
+
+      {connection && (
+        <Group title="ElevenLabs" hint="voces más humanas, en la nube y de pago">
+          <KeyField
+            label="Clave de ElevenLabs"
+            placeholder="sk_…"
+            hasKey={hasKey}
+            disabled={!connection}
+            onSave={saveKey}
+            onDelete={() => saveKey("")}
+          >
+            {hasKey
+              ? "Guardada en el Administrador de credenciales de Windows, no en un archivo. Lo que dice Kronos se genera en ElevenLabs, que lo cobra en tu cuenta."
+              : "Con tu clave se suman las voces de tu cuenta. Al crearla, dale permiso de Text to Speech y de Voices (leer)."}
+          </KeyField>
         </Group>
       )}
 

@@ -1,17 +1,28 @@
-"""Rutas para elegir y probar la voz desde la pantalla de configuración."""
+"""Rutas para elegir y probar la voz desde la pantalla de configuración.
+
+También guardan la clave de ElevenLabs. Entra por acá, pero ninguna ruta la
+devuelve: solo se informa si hay una.
+"""
 
 from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kronos_engine.core.voices import UnknownVoiceError, VoiceControl
+
+# Una clave de ElevenLabs tiene unos cincuenta caracteres.
+_MAX_KEY = 1000
 
 
 class VoiceChoice(BaseModel):
     id: str
+
+
+class KeyBody(BaseModel):
+    key: str = Field(max_length=_MAX_KEY)
 
 
 def voices_router(voices: VoiceControl, require_token: Callable[..., None]) -> APIRouter:
@@ -21,6 +32,7 @@ def voices_router(voices: VoiceControl, require_token: Callable[..., None]) -> A
     def list_voices() -> dict[str, Any]:
         return {
             "current": voices.current(),
+            "has_key": voices.has_key(),
             "voices": [asdict(voice) for voice in voices.available()],
         }
 
@@ -40,5 +52,13 @@ def voices_router(voices: VoiceControl, require_token: Callable[..., None]) -> A
         except RuntimeError as exc:
             # La voz no se pudo descargar o el altavoz no abrió: el texto es para el usuario.
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+    @router.put("/key", status_code=status.HTTP_204_NO_CONTENT)
+    async def write_key(body: KeyBody) -> None:
+        try:
+            await voices.set_key(body.key)
+        except OSError as exc:
+            # Windows no dejó guardarla: el mensaje no incluye la clave.
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(exc)) from exc
 
     return router

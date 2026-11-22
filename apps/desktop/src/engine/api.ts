@@ -15,7 +15,12 @@ export type Voice = {
   provider: "piper" | "elevenlabs";
 };
 
-export type VoiceList = { current: string; voices: Voice[] };
+export type VoiceList = {
+  current: string;
+  /** Si hay una clave de ElevenLabs guardada. La clave nunca vuelve del motor. */
+  has_key: boolean;
+  voices: Voice[];
+};
 
 async function request(connection: Connection, path: string, init: RequestInit = {}): Promise<Response> {
   const response = await fetch(`http://127.0.0.1:${connection.port}${path}`, {
@@ -41,6 +46,11 @@ export async function selectVoice(connection: Connection, id: string): Promise<v
 /** Hace sonar una frase de muestra. Vuelve cuando terminó de sonar. */
 export async function previewVoice(connection: Connection, id: string): Promise<void> {
   await request(connection, `/voices/${encodeURIComponent(id)}/preview`, { method: "POST" });
+}
+
+/** Guarda la clave de ElevenLabs en el Administrador de credenciales de Windows; vacía, la borra. */
+export async function setVoiceKey(connection: Connection, key: string): Promise<void> {
+  await request(connection, "/voices/key", { method: "PUT", body: JSON.stringify({ key }) });
 }
 
 /** Si Kronos escucha su nombre para activarse. */
