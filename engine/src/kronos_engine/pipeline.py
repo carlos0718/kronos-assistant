@@ -14,6 +14,7 @@ from kronos_engine.core.demo import (
     DemoFollowUp,
     DemoModel,
     DemoProfile,
+    DemoRecognizer,
     DemoVoices,
     DemoWakeWord,
     demo_pipeline,
@@ -23,12 +24,11 @@ from kronos_engine.core.folder_access import FolderAccess, FolderAccessControl
 from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.model_choice import ModelControl
 from kronos_engine.core.profile import ProfileControl
+from kronos_engine.core.recognizer import RecognizerControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.tools import Tool
 from kronos_engine.core.voices import VoiceControl
 from kronos_engine.voice.assembly import (
-    DEFAULT_STT_MODEL,
-    conversation_stt,
     conversation_tts,
     starting_voice,
     tts_for,
@@ -39,11 +39,12 @@ from kronos_engine.voice.assembly import (
 PIPELINE_ENV = "KRONOS_PIPELINE"
 # Idioma en que se transcribe ("es", "en"). PROVISORIO: irá en la configuración.
 LANGUAGE_ENV = "KRONOS_LANGUAGE"
-# Modelo que transcribe: "parakeet", o un tamaño de whisper ("base", "small",
-# "medium"…) para volver al reconocedor anterior. Parakeet es mucho más rápido;
-# los tiempos están en docs/MEDICIONES.md. "elevenlabs" transcribe en la nube,
-# de pago, con la clave de la pestaña Voz: lo que oye el micrófono sale de la
-# computadora, incluso en reposo. PROVISORIO: irá en la configuración.
+# Modelo que transcribe, para probar uno sin pasar por la pestaña Voz (si el
+# usuario eligió uno ahí, gana el suyo): "parakeet", "elevenlabs" o un tamaño de
+# whisper ("base", "small", "medium"…). Parakeet es mucho más rápido; los tiempos
+# están en docs/MEDICIONES.md. "elevenlabs" transcribe en la nube, de pago, con la
+# clave de la pestaña Voz: lo que oye el micrófono sale de la computadora, incluso
+# en reposo.
 STT_MODEL_ENV = "KRONOS_STT_MODEL"
 
 # Modelo de Ollama que responde. PROVISORIO: irá en la configuración.
@@ -69,6 +70,7 @@ class Parts:
     end_pause: EndPauseControl
     folder_access: FolderAccessControl
     model: ModelControl
+    recognizer: RecognizerControl
 
 
 def available_tools(
@@ -112,6 +114,7 @@ def build() -> Parts:
             DemoEndPause(),
             DemoFolderAccess(),
             DemoModel(),
+            DemoRecognizer(),
         )
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
@@ -124,6 +127,7 @@ def build() -> Parts:
     from kronos_engine.config.follow_up import StoredFollowUp
     from kronos_engine.config.model_choice import StoredModelChoice
     from kronos_engine.config.profile import StoredProfile
+    from kronos_engine.config.recognizer import StoredRecognizer
     from kronos_engine.config.settings import SettingsStore
     from kronos_engine.llm.anthropic import AnthropicProvider
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
@@ -137,6 +141,7 @@ def build() -> Parts:
     from kronos_engine.voice.microphone import open_microphone
     from kronos_engine.voice.playback import play
     from kronos_engine.voice.speaker import VoiceSpeaker
+    from kronos_engine.voice.switching_stt import SwitchingStt
     from kronos_engine.voice.vad import SileroVad
     from kronos_engine.voice.voices import RoutedTts, SelectableVoices
     from kronos_engine.voice.wake import WhisperWakeWord
@@ -151,9 +156,15 @@ def build() -> Parts:
     # Con una clave nueva se vuelve a probar ElevenLabs enseguida, sin esperar la pausa.
     key = StoredElevenLabsKey(WindowsCredentials(), on_change=outage.reset)
     move_from_env(key, os.environ.get(KEY_ENV, ""))
-    # Los tres modelos se cargan mientras el usuario todavía no habló.
-    stt_model = os.environ.get(STT_MODEL_ENV, DEFAULT_STT_MODEL)
-    stt = conversation_stt(stt_model, language, outage, key.get)
+    # Los tres modelos se cargan mientras el usuario todavía no habló. El reconocedor se
+    # elige en cada frase; al cambiarlo se carga el nuevo sin esperar a que hable.
+    stt_choice = StoredRecognizer(
+        store,
+        lambda: bool(key.get()),
+        from_env=os.environ.get(STT_MODEL_ENV, ""),
+        on_change=lambda: stt.preload(),
+    )
+    stt = SwitchingStt(stt_choice.get, language, outage, key.get)
     stt.preload()
     voice = starting_voice(
         settings.voice or os.environ.get(VOICE_ENV), default_voice, has_key=bool(key.get())
@@ -212,5 +223,13 @@ def build() -> Parts:
         local_voice=default_voice,
     )
     return Parts(
-        pipeline, voices, standby, profile, StoredFollowUp(store), end_pause, folder_access, choice
+        pipeline,
+        voices,
+        standby,
+        profile,
+        StoredFollowUp(store),
+        end_pause,
+        folder_access,
+        choice,
+        stt_choice,
     )

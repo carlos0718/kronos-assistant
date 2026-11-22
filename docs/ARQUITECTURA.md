@@ -100,7 +100,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 | Pieza | Interfaz | Implementación inicial | Qué permite cambiar |
 |---|---|---|---|
 | Detección de voz | `VAD` | Silero (ONNX) | Otro detector |
-| Voz a texto | `STT` | Parakeet v3 (ONNX); faster-whisper con `KRONOS_STT_MODEL=small`; ElevenLabs Scribe con `KRONOS_STT_MODEL=elevenlabs`, con Parakeet de respaldo | whisper.cpp u otro |
+| Voz a texto | `STT` | Parakeet v3 (ONNX); faster-whisper; ElevenLabs Scribe, con Parakeet de respaldo; se elige en la pestaña Voz | whisper.cpp u otro |
 | Texto a voz | `TTS` | Piper; las voces de ElevenLabs con clave propia, con Piper de respaldo. La clave se carga en la pestaña Voz y va al Administrador de credenciales («Kronos/elevenlabs»); se lee en cada pedido, así que guardarla o borrarla no obliga a reiniciar | Kokoro, otras voces o motores |
 | Palabra de activación | `WakeWord` | El reconocedor de voz: transcribe y busca «Kronos» | Un detector entrenado (openWakeWord, livekit-wakeword) |
 | Modelo de lenguaje | `LLMProvider` | Ollama (`qwen3:8b`) de fábrica; Claude (Opus, Sonnet o Haiku 5.5) con clave propia, elegido en la pestaña Modelo sin reiniciar (`SwitchingProvider`). La clave va al Administrador de credenciales de Windows, no a `config.toml` | OpenAI, Gemini, OpenRouter, "Sign in with ChatGPT" |

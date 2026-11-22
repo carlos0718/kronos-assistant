@@ -3,9 +3,8 @@ import asyncio
 import numpy as np
 import pytest
 
+from kronos_engine.core.recognizer import DEFAULT_RECOGNIZER
 from kronos_engine.voice.assembly import (
-    DEFAULT_STT_MODEL,
-    conversation_stt,
     conversation_tts,
     starting_voice,
     stt_for,
@@ -14,7 +13,7 @@ from kronos_engine.voice.assembly import (
 )
 from kronos_engine.voice.catalog import VOICES
 from kronos_engine.voice.elevenlabs import ElevenLabsError, ElevenLabsStt, ElevenLabsTts
-from kronos_engine.voice.fallback import FallbackStt, FallbackTts, Outage
+from kronos_engine.voice.fallback import FallbackTts, Outage
 from kronos_engine.voice.parakeet import ParakeetStt
 from kronos_engine.voice.stt import WhisperStt
 from kronos_engine.voice.tts import PiperTts
@@ -29,7 +28,7 @@ def no_key() -> str:
 
 
 def test_el_reconocedor_de_fabrica_es_parakeet() -> None:
-    assert isinstance(stt_for(DEFAULT_STT_MODEL, "es", key), ParakeetStt)
+    assert isinstance(stt_for(DEFAULT_RECOGNIZER, "es", key), ParakeetStt)
 
 
 def test_parakeet_se_elige_por_su_nombre() -> None:
@@ -76,14 +75,6 @@ def test_las_voces_de_elevenlabs_tienen_su_motor() -> None:
 
 def test_sin_clave_solo_se_ofrecen_las_voces_de_piper() -> None:
     assert voice_catalog(no_key)() == VOICES
-
-
-def test_en_la_conversacion_elevenlabs_transcribe_con_respaldo_de_parakeet() -> None:
-    assert isinstance(conversation_stt("elevenlabs", "es", Outage(), key), FallbackStt)
-
-
-def test_en_la_conversacion_los_reconocedores_locales_no_llevan_respaldo() -> None:
-    assert isinstance(conversation_stt("parakeet", "es", Outage(), key), ParakeetStt)
 
 
 def test_en_la_conversacion_una_voz_de_elevenlabs_tiene_respaldo_de_piper() -> None:
