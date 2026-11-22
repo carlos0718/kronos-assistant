@@ -71,3 +71,11 @@ def test_lo_que_busca_en_internet_lo_cuenta_corto_y_sin_leer_direcciones() -> No
 
     assert "internet" in text
     assert "direcciones web" in text
+
+
+def test_cree_en_las_notas_de_lo_que_busco() -> None:
+    # Haiku le decía al usuario que no había buscado un resultado que sí buscó.
+    text = INSTRUCTIONS.lower()
+
+    assert "nota de kronos" in text
+    assert "no digas que no lo buscaste" in text

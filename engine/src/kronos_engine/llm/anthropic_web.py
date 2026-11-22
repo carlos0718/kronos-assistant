@@ -3,8 +3,9 @@
 Claude busca en los servidores de Anthropic, y lo que encuentra llega en
 bloques que Kronos no guarda en el historial: devolverlos en cada turno
 costaría miles de tokens. En su lugar queda una nota corta con lo que buscó y
-de dónde salió. Sin ella, en el turno siguiente Claude ve una respuesta que no
-sabe de dónde sacó, la pone en duda y vuelve a buscar.
+de dónde salió, con las frases que citó de esas páginas. Sin ella, en el turno
+siguiente Claude ve una respuesta que no sabe de dónde sacó y la pone en duda:
+vuelve a buscar o le dice al usuario que no la verificó.
 """
 
 import logging
@@ -20,6 +21,10 @@ _FETCH = "web_fetch"
 _RESULTS = {"web_search_tool_result", "web_fetch_tool_result"}
 # Alcanza para saber de dónde salió la respuesta; cada fuente cuesta tokens en cada turno.
 _MAX_SOURCES = 5
+# Las frases citadas son la prueba de los datos de la respuesta (un resultado,
+# quién hizo los goles): pocas y cortas, porque también van en cada turno.
+_MAX_QUOTES = 6
+_QUOTE_CHARS = 200
 
 
 @dataclass
@@ -39,8 +44,14 @@ def web_note(content: Sequence[Any]) -> str:
     if not uses:
         return ""
     parts = [_told(use) for use in uses]
+    if quotes := _quotes(content):
+        parts.append("Lo que citaste de esas páginas: " + "; ".join(quotes) + ".")
     if any(not use.error for use in uses):
-        parts.append("Lo que contestaste salió de ahí: no hace falta volver a buscarlo.")
+        parts.append(
+            "Esto es solo un resumen: las páginas completas las leíste al responder, y "
+            "todos los datos de tu respuesta salieron de ahí, aunque no aparezcan en esta "
+            "nota. Ya está verificado: no lo corrijas ni hace falta volver a buscarlo."
+        )
     return "[Nota de Kronos, no se dijo en voz alta: " + " ".join(parts) + "]"
 
 
@@ -74,6 +85,21 @@ def _uses(content: Sequence[Any]) -> list[_Use]:
         elif part.type in _RESULTS and (use := uses.get(part.tool_use_id)):
             _fill(use, part.content)
     return list(uses.values())
+
+
+def _quotes(content: Sequence[Any]) -> list[str]:
+    """Las frases de las páginas que Claude citó en la respuesta, sin repetir."""
+    quotes: list[str] = []
+    for part in content:
+        if part.type != "text":
+            continue
+        for citation in getattr(part, "citations", None) or []:
+            text = " ".join(str(getattr(citation, "cited_text", "") or "").split())
+            if len(text) > _QUOTE_CHARS:
+                text = text[:_QUOTE_CHARS].rsplit(" ", 1)[0] + "…"
+            if text and f"«{text}»" not in quotes:
+                quotes.append(f"«{text}»")
+    return quotes[:_MAX_QUOTES]
 
 
 def _fill(use: _Use, result: Any) -> None:

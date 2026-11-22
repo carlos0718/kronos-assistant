@@ -51,6 +51,49 @@ def test_la_nota_dice_que_busco_y_que_encontro() -> None:
     assert "November 16, 2026" in note
 
 
+def cited(text: str, *quotes: str) -> SimpleNamespace:
+    """Un texto de Claude que cita frases de las páginas que encontró."""
+    return block(
+        "text",
+        text=text,
+        citations=[
+            block("web_search_result_location", cited_text=quote, url="https://ole.com.ar/x")
+            for quote in quotes
+        ],
+    )
+
+
+def test_la_nota_lleva_las_frases_que_cito() -> None:
+    # Con solo los títulos, en el turno siguiente Claude veía datos (el 2-0, los
+    # goles) que no sabía de dónde sacó, y le decía al usuario que no los verificó.
+    content = [
+        *BOCA[:2],
+        cited("Ganó 2 a 0.", "Boca venció 2-0 a Atlético Mineiro con goles de Ascacibar"),
+    ]
+
+    assert "Boca venció 2-0 a Atlético Mineiro con goles de Ascacibar" in web_note(content)
+
+
+def test_cada_frase_citada_va_una_vez_y_recortada() -> None:
+    long = "Boca " + "campeón " * 100
+    content = [*BOCA[:2], cited("Uno.", "Ganó Boca"), cited("Dos.", "Ganó Boca", long)]
+
+    note = web_note(content)
+
+    assert note.count("Ganó Boca") == 1
+    assert long not in note
+    assert "Boca campeón" in note
+
+
+def test_la_nota_dice_que_la_respuesta_ya_esta_verificada() -> None:
+    note = web_note(BOCA)
+
+    assert "verificad" in note
+    # Con solo la nota a la vista, Claude no encontraba en ella los goleadores
+    # que había dicho y se corregía: tiene que saber que la nota es un resumen.
+    assert "solo un resumen" in note
+
+
 def test_la_nota_no_lleva_direcciones_enteras() -> None:
     # Cuestan tokens en cada turno y no hacen falta: alcanza con el sitio.
     assert "/boca/partido" not in web_note(BOCA)
