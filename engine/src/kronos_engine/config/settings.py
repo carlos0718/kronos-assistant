@@ -15,6 +15,7 @@ from kronos_engine.core.folder_access import DEFAULT_DEPTH, MAX_DEPTH, MIN_DEPTH
 from kronos_engine.core.follow_up import DEFAULT_SECONDS, MAX_SECONDS
 from kronos_engine.core.model_choice import OLLAMA, ModelChoice, checked
 from kronos_engine.core.platform import Folder
+from kronos_engine.core.recognizer import RECOGNIZERS
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +40,8 @@ class Settings:
     # (vacío: el de fábrica). La clave no va acá: ver `config/model_choice.py`.
     llm_provider: str = OLLAMA
     llm_model: str = ""
+    # Qué reconocedor de voz eligió el usuario; None: el de fábrica.
+    stt_model: str | None = None
 
 
 def _follow_up_seconds(value: object) -> int:
@@ -83,6 +86,11 @@ def _model_choice(provider: object, model: object) -> ModelChoice:
         return ModelChoice()
 
 
+def _stt_model(value: object) -> str | None:
+    # Un nombre desconocido (de una versión futura, o editado a mano) se ignora.
+    return value if isinstance(value, str) and value in RECOGNIZERS else None
+
+
 def config_dir() -> Path:
     """Carpeta de la app en el perfil del usuario."""
     if sys.platform == "win32":
@@ -121,6 +129,7 @@ class SettingsStore:
             folder_depth=_folder_depth(data.get("folder_depth")),
             llm_provider=model.provider,
             llm_model=model.model,
+            stt_model=_stt_model(data.get("stt_model")),
         )
 
     def save(self, settings: Settings) -> None:

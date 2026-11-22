@@ -3,16 +3,19 @@ import {
   type Connection,
   getEndPause,
   getFollowUp,
+  getRecognizer,
   listVoices,
   previewVoice,
+  type RecognizerStatus,
   selectVoice,
   setEndPause,
   setFollowUp,
+  setRecognizer,
   setVoiceKey,
   type Voice,
   type VoiceList,
 } from "../../engine/api";
-import { Group, Row, Slider, Value } from "../controls";
+import { Group, Row, Segmented, Slider, Value } from "../controls";
 import { KeyField } from "./KeyField";
 import "./VoiceTab.css";
 
@@ -37,6 +40,15 @@ const GROUPS = [
     matches: (voice: Voice) => voice.provider === "piper" && voice.language === "en",
   },
 ];
+// Los nombres que usa el motor (`core/recognizer.py`) y cómo se muestran.
+const RECOGNIZERS: Record<string, { label: string; text: string }> = {
+  parakeet: { label: "Parakeet", text: "En tu computadora y gratis. El más rápido: tarda unos 0,15 s por frase." },
+  small: { label: "Whisper", text: "En tu computadora y gratis. Más lento, unos 2 s por frase, pero fija el español." },
+  elevenlabs: {
+    label: "ElevenLabs",
+    text: "En la nube y de pago. Entiende mejor las frases cortas, pero tarda más: unos 1,2 s por frase.",
+  },
+};
 const GENDER_LABEL = { female: "Mujer", male: "Hombre" };
 
 function describe(voice: Voice): string {
@@ -62,16 +74,18 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
   const [followUp, setFollowUpSeconds] = useState<number | null>(null);
   // En segundos, como se muestra; el motor la guarda en milisegundos.
   const [endPause, setEndPauseSeconds] = useState<number | null>(null);
+  const [recognizer, setRecognizerStatus] = useState<RecognizerStatus | null>(null);
   const saving = useRef<number | undefined>(undefined);
   const savingPause = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!connection) return;
     let stale = false;
-    Promise.all([listVoices(connection), getFollowUp(connection), getEndPause(connection)])
-      .then(([voiceList, seconds, milliseconds]) => {
+    Promise.all([listVoices(connection), getFollowUp(connection), getEndPause(connection), getRecognizer(connection)])
+      .then(([voiceList, seconds, milliseconds, recognizerStatus]) => {
         if (stale) return;
         setList(voiceList);
+        setRecognizerStatus(recognizerStatus);
         setFollowUpSeconds(seconds);
         setEndPauseSeconds(milliseconds / 1000);
       })
@@ -92,6 +106,19 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
     } catch (e) {
       setError(String((e as Error).message ?? e));
       return false;
+    }
+  }
+
+  async function chooseRecognizer(label: string) {
+    if (!connection || !recognizer) return;
+    const model = recognizer.models.find((name) => RECOGNIZERS[name]?.label === label);
+    if (!model) return;
+    setError(null);
+    try {
+      await setRecognizer(connection, model);
+      setRecognizerStatus({ ...recognizer, model });
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
     }
   }
 
@@ -168,6 +195,30 @@ export function VoiceTab({ connection }: { connection: Connection | null }) {
               ? "Guardada en el Administrador de credenciales de Windows, no en un archivo. Lo que dice Kronos se genera en ElevenLabs, que lo cobra en tu cuenta."
               : "Con tu clave se suman las voces de tu cuenta. Al crearla, dale permiso de Text to Speech y de Voices (leer)."}
           </KeyField>
+        </Group>
+      )}
+
+      {connection && recognizer && (
+        <Group title="Reconocimiento de voz" hint="qué convierte lo que decís en texto">
+          <Row label="Reconocedor" text={RECOGNIZERS[recognizer.model]?.text ?? `Probando «${recognizer.model}».`}>
+            <Segmented
+              options={recognizer.models.map((name) => RECOGNIZERS[name]?.label ?? name)}
+              value={RECOGNIZERS[recognizer.model]?.label ?? ""}
+              onChange={chooseRecognizer}
+            />
+          </Row>
+          {recognizer.model === "elevenlabs" && (
+            <Row
+              label="Lo que oye el micrófono"
+              text={
+                hasKey
+                  ? "Sale de tu computadora, también mientras Kronos espera que lo llames por su nombre."
+                  : "Falta la clave de ElevenLabs: hasta que la cargues, reconoce Parakeet."
+              }
+            >
+              <Value>{hasKey ? "En la nube" : "Sin clave"}</Value>
+            </Row>
+          )}
         </Group>
       )}
 

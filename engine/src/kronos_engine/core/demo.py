@@ -13,6 +13,8 @@ from kronos_engine.core.follow_up import DEFAULT_SECONDS
 from kronos_engine.core.model_choice import ANTHROPIC, ModelChoice
 from kronos_engine.core.model_choice import checked as checked_choice
 from kronos_engine.core.profile import Profile
+from kronos_engine.core.recognizer import DEFAULT_RECOGNIZER
+from kronos_engine.core.recognizer import checked as checked_recognizer
 from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
 
 DEMO_TRANSCRIPT = "Kronos, ¿estás ahí?"
@@ -116,6 +118,22 @@ class DemoModel:
             self._keys[provider] = key
         else:
             self._keys.pop(provider, None)
+
+
+class DemoRecognizer:
+    """Un reconocedor elegido que solo vive en la memoria."""
+
+    def __init__(self) -> None:
+        self._name = DEFAULT_RECOGNIZER
+
+    def get(self) -> str:
+        return self._name
+
+    def set(self, name: str) -> None:
+        self._name = checked_recognizer(name)
+
+    def has_key(self) -> bool:
+        return False
 
 
 class DemoEndPause:

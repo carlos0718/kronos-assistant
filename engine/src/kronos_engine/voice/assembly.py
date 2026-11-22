@@ -9,18 +9,15 @@ import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from kronos_engine.core.recognizer import ELEVENLABS, PARAKEET
+
 if TYPE_CHECKING:
     from kronos_engine.core.voices import VoiceInfo
     from kronos_engine.voice.elevenlabs import ElevenLabsStt, ElevenLabsTts
-    from kronos_engine.voice.fallback import FallbackStt, FallbackTts, Outage
+    from kronos_engine.voice.fallback import FallbackTts, Outage
     from kronos_engine.voice.parakeet import ParakeetStt
     from kronos_engine.voice.stt import WhisperStt
     from kronos_engine.voice.tts import PiperTts
-
-# Los reconocedores, por su nombre. Cualquier otro nombre es un tamaño de whisper.
-PARAKEET = "parakeet"
-ELEVENLABS = "elevenlabs"
-DEFAULT_STT_MODEL = PARAKEET
 
 Key = Callable[[], str]
 
@@ -54,18 +51,6 @@ def tts_for(voice: str, key: Key) -> "PiperTts | ElevenLabsTts":
         model = os.environ.get(TTS_MODEL_ENV, TTS_MODEL)
         return ElevenLabsTts(key, voice, model=model)
     return PiperTts(voice)
-
-
-def conversation_stt(
-    name: str, language: str, outage: "Outage", key: Key
-) -> "ParakeetStt | WhisperStt | ElevenLabsStt | FallbackStt":
-    """El reconocedor de la conversación: si es ElevenLabs, con Parakeet de respaldo."""
-    from kronos_engine.voice.fallback import FallbackStt
-
-    stt = stt_for(name, language, key)
-    if name != ELEVENLABS:
-        return stt
-    return FallbackStt(stt, stt_for(PARAKEET, language, key), outage)
 
 
 def conversation_tts(

@@ -94,6 +94,24 @@ export async function setEndPause(connection: Connection, milliseconds: number):
   await request(connection, "/end-pause", { method: "PUT", body: JSON.stringify({ milliseconds }) });
 }
 
+/** Qué reconoce lo que decís: dos corren en la computadora y ElevenLabs, en la nube y de pago. */
+export type RecognizerStatus = {
+  /** El elegido; puede ser otro nombre si se probó uno con KRONOS_STT_MODEL. */
+  model: string;
+  /** Los que se pueden elegir; el primero es el de fábrica. */
+  models: string[];
+  /** Si hay una clave de ElevenLabs: sin ella se usa Parakeet aunque esté elegido ElevenLabs. */
+  has_key: boolean;
+};
+
+export async function getRecognizer(connection: Connection): Promise<RecognizerStatus> {
+  return (await request(connection, "/recognizer")).json();
+}
+
+export async function setRecognizer(connection: Connection, model: string): Promise<void> {
+  await request(connection, "/recognizer", { method: "PUT", body: JSON.stringify({ model }) });
+}
+
 /** Las carpetas que todo usuario tiene, como las nombra el motor (`core/platform.py`). */
 export type KnownFolder = "desktop" | "documents" | "downloads" | "pictures" | "music" | "videos" | "home";
 

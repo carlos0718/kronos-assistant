@@ -17,6 +17,7 @@ from kronos_engine.api.follow_up import follow_up_router
 from kronos_engine.api.hub import Hub, message
 from kronos_engine.api.model import model_router
 from kronos_engine.api.profile import profile_router
+from kronos_engine.api.recognizer import recognizer_router
 from kronos_engine.api.voices import voices_router
 from kronos_engine.api.wake import wake_router
 from kronos_engine.core.conversation import Pipeline
@@ -26,6 +27,7 @@ from kronos_engine.core.demo import (
     DemoFollowUp,
     DemoModel,
     DemoProfile,
+    DemoRecognizer,
     DemoVoices,
     DemoWakeWord,
     demo_pipeline,
@@ -36,6 +38,7 @@ from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.model_choice import ModelControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.protocol import ServerMessage
+from kronos_engine.core.recognizer import RecognizerControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.voices import VoiceControl
 
@@ -63,6 +66,7 @@ def create_app(
     end_pause: EndPauseControl | None = None,
     folder_access: FolderAccessControl | None = None,
     model: ModelControl | None = None,
+    recognizer: RecognizerControl | None = None,
 ) -> FastAPI:
     """Crea el servidor. Las piezas que no se le pasan son las simuladas."""
     follow_up = follow_up or DemoFollowUp()
@@ -96,6 +100,7 @@ def create_app(
     app.include_router(end_pause_router(end_pause or DemoEndPause(), require_token))
     app.include_router(folder_access_router(folder_access or DemoFolderAccess(), require_token))
     app.include_router(model_router(model or DemoModel(), require_token))
+    app.include_router(recognizer_router(recognizer or DemoRecognizer(), require_token))
 
     @app.get("/health", dependencies=[Depends(require_token)])
     def health() -> dict[str, Any]:
