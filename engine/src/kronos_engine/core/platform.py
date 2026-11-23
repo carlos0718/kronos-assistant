@@ -61,6 +61,20 @@ class Shell(Protocol):
         ...
 
 
+class Volume(Protocol):
+    """El volumen general de la computadora."""
+
+    def level(self) -> int:
+        """De 0 a 100."""
+        ...
+
+    def set_level(self, percent: int) -> None: ...
+
+    def muted(self) -> bool: ...
+
+    def set_muted(self, muted: bool) -> None: ...
+
+
 class Folder(Enum):
     """Las carpetas que todo usuario tiene, estén donde estén en el disco."""
 
