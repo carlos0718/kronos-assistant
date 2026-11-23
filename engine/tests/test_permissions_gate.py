@@ -327,3 +327,54 @@ def test_el_modelo_no_ve_la_clave_ni_se_registra(caplog: pytest.LogCaptureFixtur
 
     assert "intento-secreto" not in result
     assert "intento-secreto" not in caplog.text
+
+
+class GradedFakeTool(FakeTool):
+    """Una acción cuyo nivel depende de lo que se le pide."""
+
+    def level_for(self, arguments: Mapping[str, Any]) -> PermissionLevel:
+        return PermissionLevel(arguments["level"])
+
+    def detail_for(self, arguments: Mapping[str, Any]) -> str:
+        return f"detalle {arguments['level']}"
+
+
+def test_una_accion_graduada_pide_lo_que_exige_cada_pedido() -> None:
+    tool = GradedFakeTool("run_command", PermissionLevel.SENSITIVE)
+    approver = FakeApprover(True)
+    gate = PermissionGate([tool], approver)
+
+    assert run(gate, ToolCall("run_command", {"level": 2})) == "run_command hecho"
+
+    assert approver.asked == [
+        ApprovalRequest("run_command", "hacer run_command con {'level': 2}", "detalle 2")
+    ]
+
+
+def test_una_accion_graduada_prohibida_no_se_ejecuta_ni_se_pregunta() -> None:
+    tool = GradedFakeTool("run_command", PermissionLevel.SENSITIVE)
+    approver = FakeApprover(True)
+
+    run(PermissionGate([tool], approver), ToolCall("run_command", {"level": 4}))
+
+    assert tool.ran == []
+    assert approver.asked == []
+
+
+def test_una_accion_graduada_no_baja_del_nivel_de_fabrica() -> None:
+    tool = GradedFakeTool("run_command", PermissionLevel.SENSITIVE)
+    approver = FakeApprover(True)
+
+    run(PermissionGate([tool], approver), ToolCall("run_command", {"level": 1}))
+
+    assert len(approver.asked) == 1
+
+
+def test_una_accion_graduada_critica_pide_la_clave_con_el_detalle() -> None:
+    tool = GradedFakeTool("run_command", PermissionLevel.SENSITIVE)
+    asker = FakeAsker("clave-correcta")
+    gate = PermissionGate([tool], FakeApprover(True), FakeVault(), asker)
+
+    assert run(gate, ToolCall("run_command", {"level": 3})) == "run_command hecho"
+
+    assert asker.asked[0].detail == "detalle 3"

@@ -104,7 +104,7 @@ Cada pieza se define como una interfaz con implementaciones reemplazables. Así 
 | Texto a voz | `TTS` | Piper; las voces de ElevenLabs con clave propia, con Piper de respaldo. La clave se carga en la pestaña Voz y va al Administrador de credenciales («Kronos/elevenlabs»); se lee en cada pedido, así que guardarla o borrarla no obliga a reiniciar | Kokoro, otras voces o motores |
 | Palabra de activación | `WakeWord` | El reconocedor de voz: transcribe y busca «Kronos» | Un detector entrenado (openWakeWord, livekit-wakeword) |
 | Modelo de lenguaje | `LLMProvider` | Ollama (`qwen3:8b`) de fábrica; Claude (Opus, Sonnet o Haiku 5.5) con clave propia, elegido en la pestaña Modelo sin reiniciar (`SwitchingProvider`). La clave va al Administrador de credenciales de Windows, no a `config.toml` | OpenAI, Gemini, OpenRouter, "Sign in with ChatGPT" |
-| Acciones | `Tool` | Hoy: decir la hora, abrir aplicaciones y cerrarlas, abrir las carpetas que el usuario permite y sus subcarpetas (en la ventana del explorador que ya esté abierta, si hay una), abrir archivos de esas carpetas (solo los tipos de `OPENABLE_SUFFIXES`: documentos, imágenes, audio y video), el clima con Open-Meteo y, con Claude, buscar en internet y leer páginas (herramientas de Anthropic que corren en sus servidores) (si no la encuentra por las palabras, el modelo elige por el significado en una pregunta aparte, `Chooser`). Después: archivos, sistema, terminal | Nuevos plugins |
+| Acciones | `Tool` | Hoy: decir la hora, abrir aplicaciones y cerrarlas, abrir las carpetas que el usuario permite y sus subcarpetas (en la ventana del explorador que ya esté abierta, si hay una), abrir archivos de esas carpetas (solo los tipos de `OPENABLE_SUFFIXES`: documentos, imágenes, audio y video), el clima con Open-Meteo y, con Claude, buscar en internet y leer páginas (herramientas de Anthropic que corren en sus servidores) (si no la encuentra por las palabras, el modelo elige por el significado en una pregunta aparte, `Chooser`) y ejecutar comandos de PowerShell (`RunCommandTool`, con clasificador de niveles). Después: volumen, borrar archivos y otras acciones de sistema | Nuevos plugins |
 | Calendario | `CalendarProvider` | Google Calendar | `.ics`/CalDAV, Outlook, Notion |
 | Sistema operativo | `Platform` | Windows | macOS, Linux |
 
@@ -145,13 +145,13 @@ Acción propuesta ──► Clasificar nivel ──┬─ Nivel 1 ──► Ejec
                                         └─ Nivel 4 ──► Rechazar
 ```
 
-- **Comandos de terminal:** pasan por un clasificador de reglas que los sube a nivel 3 o 4 según el patrón.
+- **Comandos de terminal:** pasan por un clasificador de reglas (`tools/command_rules.py`) que los deja en nivel 2 y los sube a 3 o 4 según el patrón; lo que no se puede leer (codificado u ofuscado) pide la clave. La acción declara su nivel por pedido (`GradedTool.level_for`) y el control de permisos nunca lo baja del nivel de fábrica. El usuario ve el comando exacto (`detail`) y, en voz alta, solo «ejecutar un comando de terminal».
 - **Clave secreta:** se verifica con Argon2 y se bloquea tras varios intentos fallidos. El modelo nunca la ve.
 - **Contenido no confiable:** el texto de notificaciones, correos o páginas web se marca como dato. Toda acción pedida en un turno que lo incluya exige, como mínimo, confirmación.
 - **Auditoría:** cada acción ejecutada o rechazada queda en un registro local.
 - **Privilegios:** el motor nunca corre como administrador.
 
-Hoy `permissions/` ejecuta el nivel 1, pide confirmación para el 2 y rechaza el 4. El nivel 3 también se rechaza, hasta que exista la clave secreta. El registro de auditoría todavía son líneas `motor:` en la terminal, con el nombre de la acción y sin sus datos.
+Hoy `permissions/` ejecuta el nivel 1, pide confirmación para el 2, pide la clave secreta para el 3 (solo la usan los comandos de terminal) y rechaza el 4. El registro de auditoría todavía son líneas `motor:` en la terminal, con el nombre de la acción y sin sus datos.
 
 **Cómo se confirma una acción de nivel 2:**
 

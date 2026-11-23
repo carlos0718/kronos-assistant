@@ -8,7 +8,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import IntEnum
 from types import MappingProxyType
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 # Esquema (JSON Schema) de una acción que no recibe datos.
 NO_PARAMETERS: Mapping[str, Any] = MappingProxyType({"type": "object", "properties": {}})
@@ -67,6 +67,21 @@ class Tool(Protocol):
 
     async def run(self, arguments: Mapping[str, Any]) -> str:
         """Ejecuta la acción y devuelve el resultado, en texto para el modelo."""
+        ...
+
+
+@runtime_checkable
+class GradedTool(Protocol):
+    """Una acción cuyo nivel depende de lo que se le pide, como un comando de terminal.
+
+    El control de permisos usa `level_for` en lugar de `level`: el mismo comando
+    de terminal puede ser inofensivo o borrar un disco, según el texto.
+    """
+
+    def level_for(self, arguments: Mapping[str, Any]) -> PermissionLevel: ...
+
+    def detail_for(self, arguments: Mapping[str, Any]) -> str:
+        """Lo que el usuario ve tal cual antes de aprobar: el comando exacto."""
         ...
 
 
