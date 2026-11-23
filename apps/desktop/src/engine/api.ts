@@ -177,3 +177,32 @@ export async function setSecretKey(connection: Connection, next: string, current
 export async function removeSecretKey(connection: Connection, current: string): Promise<void> {
   await request(connection, "/secret-key/remove", { method: "POST", body: JSON.stringify({ current }) });
 }
+
+/** Una acción de Kronos y su nivel de permiso (1 normal, 2 delicado, 3 crítico, 4 prohibido). */
+export type ActionLevel = {
+  name: string;
+  label: string;
+  factory: number;
+  level: number;
+  /** El más bajo al que se la puede llevar. */
+  lowest: number;
+  /** El nivel 4 no se cambia desde la app. */
+  fixed: boolean;
+};
+
+export async function getToolLevels(connection: Connection): Promise<ActionLevel[]> {
+  return (await request(connection, "/tool-levels")).json();
+}
+
+/** Cambia el nivel de una acción. Para bajar algo del nivel 3 hace falta la clave secreta. Falla con el motivo. */
+export async function setToolLevel(
+  connection: Connection,
+  name: string,
+  level: number,
+  secret?: string,
+): Promise<void> {
+  await request(connection, `/tool-levels/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    body: JSON.stringify({ level, secret }),
+  });
+}

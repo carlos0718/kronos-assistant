@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 import tomllib
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +42,8 @@ class Settings:
     llm_model: str = ""
     # Qué reconocedor de voz eligió el usuario; None: el de fábrica.
     stt_model: str | None = None
+    # El nivel de permiso que el usuario le puso a cada acción (1 a 3), por nombre.
+    tool_levels: dict[str, int] = field(default_factory=dict)
 
 
 def _follow_up_seconds(value: object) -> int:
@@ -91,6 +93,20 @@ def _stt_model(value: object) -> str | None:
     return value if isinstance(value, str) and value in RECOGNIZERS else None
 
 
+def _tool_levels(value: object) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    # Lo que no es un nivel de 1 a 3 se ignora; `bool` es un `int` para Python.
+    return {
+        name: level
+        for name, level in value.items()
+        if isinstance(name, str)
+        and isinstance(level, int)
+        and not isinstance(level, bool)
+        and 1 <= level <= 3
+    }
+
+
 def config_dir() -> Path:
     """Carpeta de la app en el perfil del usuario."""
     if sys.platform == "win32":
@@ -130,6 +146,7 @@ class SettingsStore:
             llm_provider=model.provider,
             llm_model=model.model,
             stt_model=_stt_model(data.get("stt_model")),
+            tool_levels=_tool_levels(data.get("tool_levels")),
         )
 
     def save(self, settings: Settings) -> None:

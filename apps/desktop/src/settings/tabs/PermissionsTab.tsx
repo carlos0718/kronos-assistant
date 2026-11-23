@@ -9,6 +9,7 @@ import {
 } from "../../engine/api";
 import { Group, Row, Slider, Toggle, Value } from "../controls";
 import { SecretKeyGroup } from "./SecretKeyGroup";
+import { ToolLevelsGroup } from "./ToolLevelsGroup";
 import "./PermissionsTab.css";
 
 const PERMISSION_LEVELS = [
@@ -180,6 +181,8 @@ export function PermissionsTab({ connection }: { connection: Connection | null }
           ))}
         </ul>
       </Group>
+
+      <ToolLevelsGroup connection={connection} />
 
       <SecretKeyGroup connection={connection} />
     </>
