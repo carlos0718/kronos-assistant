@@ -151,7 +151,7 @@ Acción propuesta ──► Clasificar nivel ──┬─ Nivel 1 ──► Ejec
 - **Auditoría:** cada acción ejecutada o rechazada queda en un registro local.
 - **Privilegios:** el motor nunca corre como administrador.
 
-Hoy `permissions/` ejecuta el nivel 1, pide confirmación para el 2, pide la clave secreta para el 3 (solo la usan los comandos de terminal) y rechaza el 4. El registro de auditoría todavía son líneas `motor:` en la terminal, con el nombre de la acción y sin sus datos.
+El usuario puede cambiar el nivel de cada acción desde la pestaña Permisos (`ToolLevels` en `permissions/levels.py`, guardado en `config.toml`): subir siempre se puede, bajar entre 1 y 2 también, bajar del 3 pide la clave, el 4 es fijo, y una acción graduada (la terminal) nunca queda por debajo de su nivel de fábrica. Hoy `permissions/` ejecuta el nivel 1, pide confirmación para el 2, pide la clave secreta para el 3 (solo la usan los comandos de terminal) y rechaza el 4. El registro de auditoría todavía son líneas `motor:` en la terminal, con el nombre de la acción y sin sus datos.
 
 **Cómo se confirma una acción de nivel 2:**
 

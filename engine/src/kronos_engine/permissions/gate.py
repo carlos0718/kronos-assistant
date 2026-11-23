@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 from kronos_engine.core.approval import ApprovalRequest, Approver, SecretAsker
 from kronos_engine.core.secret import SecretVault
+from kronos_engine.core.tool_levels import LevelOverrides
 from kronos_engine.core.tools import (
     GradedTool,
     PermissionLevel,
@@ -55,11 +56,13 @@ class PermissionGate:
         approver: Approver | None = None,
         vault: SecretVault | None = None,
         secret_asker: SecretAsker | None = None,
+        levels: LevelOverrides | None = None,
     ) -> None:
         self._tools = {tool.spec.name: tool for tool in tools}
         self._approver = approver
         self._vault = vault
         self._secret_asker = secret_asker
+        self._levels = levels
 
     def specs(self) -> list[ToolSpec]:
         # Lo prohibido ni se le ofrece al modelo.
@@ -67,12 +70,15 @@ class PermissionGate:
             tool.spec for tool in self._tools.values() if tool.level < PermissionLevel.FORBIDDEN
         ]
 
-    @staticmethod
-    def _level(tool: Tool, call: ToolCall) -> PermissionLevel:
-        # El nivel de fábrica es el piso: una acción graduada solo puede subirlo.
+    def _level(self, tool: Tool, call: ToolCall) -> PermissionLevel:
+        # El que eligió el usuario en Permisos, o el de fábrica.
+        base = tool.level
+        if self._levels is not None:
+            base = self._levels.level_of(tool.spec.name, tool.level)
+        # Una acción graduada (la terminal) solo puede subirlo: nunca queda por debajo.
         if isinstance(tool, GradedTool):
-            return max(tool.level, tool.level_for(call.arguments))
-        return tool.level
+            return max(base, tool.level, tool.level_for(call.arguments))
+        return base
 
     @staticmethod
     def _detail(tool: Tool, call: ToolCall) -> str:

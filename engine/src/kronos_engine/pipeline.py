@@ -20,6 +20,7 @@ from kronos_engine.core.demo import (
     DemoWakeWord,
     demo_pipeline,
 )
+from kronos_engine.core.demo_levels import DemoToolLevels
 from kronos_engine.core.end_pause import EndPauseControl
 from kronos_engine.core.folder_access import FolderAccess, FolderAccessControl
 from kronos_engine.core.follow_up import FollowUpControl
@@ -28,6 +29,7 @@ from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.recognizer import RecognizerControl
 from kronos_engine.core.secret import SecretKeyControl
 from kronos_engine.core.standby import Standby
+from kronos_engine.core.tool_levels import ToolLevelsControl
 from kronos_engine.core.tools import Tool
 from kronos_engine.core.voices import VoiceControl
 from kronos_engine.voice.assembly import (
@@ -74,6 +76,7 @@ class Parts:
     model: ModelControl
     recognizer: RecognizerControl
     secret_key: SecretKeyControl
+    tool_levels: ToolLevelsControl
 
 
 def available_tools(
@@ -125,6 +128,7 @@ def build() -> Parts:
             DemoModel(),
             DemoRecognizer(),
             DemoSecretKey(),
+            DemoToolLevels(),
         )
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
@@ -139,10 +143,12 @@ def build() -> Parts:
     from kronos_engine.config.profile import StoredProfile
     from kronos_engine.config.recognizer import StoredRecognizer
     from kronos_engine.config.settings import SettingsStore
+    from kronos_engine.config.tool_levels import StoredLevels
     from kronos_engine.llm.anthropic import AnthropicProvider
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
     from kronos_engine.llm.switching import SwitchingProvider
     from kronos_engine.permissions.gate import PermissionGate
+    from kronos_engine.permissions.levels import ToolLevels
     from kronos_engine.permissions.secret_key import SecretKey
     from kronos_engine.platform.windows.credentials import WindowsCredentials
     from kronos_engine.voice.catalog import DEFAULT_VOICES
@@ -199,9 +205,10 @@ def build() -> Parts:
     approvals = ApprovalDesk()
     # Las acciones críticas piden la clave secreta, que se escribe en pantalla.
     secret_key = SecretKey(WindowsCredentials())
-    tools = PermissionGate(
-        available_tools(folder_access.get, ModelChooser(model)), approvals, secret_key, approvals
-    )
+    actions = available_tools(folder_access.get, ModelChooser(model))
+    # Cada acción tiene un nivel de fábrica; el usuario puede cambiarlo en Permisos.
+    tool_levels = ToolLevels(actions, StoredLevels(store), secret_key)
+    tools = PermissionGate(actions, approvals, secret_key, approvals, tool_levels)
 
     def current_instructions() -> str:
         # Se lee en cada respuesta: el usuario puede cambiar su perfil sin reiniciar.
@@ -248,4 +255,5 @@ def build() -> Parts:
         choice,
         stt_choice,
         secret_key,
+        tool_levels,
     )

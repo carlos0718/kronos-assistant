@@ -126,3 +126,21 @@ def test_ignora_una_carpeta_conocida_que_no_existe(tmp_path: Path) -> None:
     path.write_text('folders_known = ["desktop", "papelera", 3]\n', encoding="utf-8")
 
     assert SettingsStore(path).load().folders_known == ("desktop",)
+
+
+def test_los_niveles_de_las_acciones_se_guardan_y_se_vuelven_a_leer(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path / "config.toml")
+
+    store.update(tool_levels={"open_app": 2, "close_app": 1})
+
+    assert store.load().tool_levels == {"open_app": 2, "close_app": 1}
+
+
+def test_un_nivel_invalido_se_ignora_al_leer(tmp_path: Path) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(
+        '[tool_levels]\nopen_app = 2\nclose_app = 9\nvolume = true\nweather = "2"\n',
+        encoding="utf-8",
+    )
+
+    assert SettingsStore(path).load().tool_levels == {"open_app": 2}
