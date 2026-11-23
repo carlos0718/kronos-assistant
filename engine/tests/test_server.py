@@ -168,6 +168,51 @@ def test_un_clic_en_la_interfaz_contesta_la_confirmacion(
         assert until(ws, "state_changed")["state"] in {"listening", "idle"}
 
 
+class SecretAskingResponder:
+    """Pide la clave secreta y cuenta qué le llegó (sin la clave misma)."""
+
+    def __init__(self, desk: ApprovalDesk) -> None:
+        self._desk = desk
+
+    async def respond(self, text: str) -> AsyncIterator[str]:
+        typed = await self._desk.ask_secret(
+            ApprovalRequest("edit_registry", "modificar el registro")
+        )
+        yield "Sin clave." if typed is None else f"Clave de {len(typed)} letras."
+
+
+@pytest.mark.parametrize(
+    ("message", "reply"),
+    [
+        ({"type": "secret", "payload": {"id": "1", "value": "clave-larga"}}, "Clave de 11 letras."),
+        ({"type": "secret_cancel", "payload": {"id": "1"}}, "Sin clave."),
+        # Un valor que no es texto no cuenta como clave.
+        ({"type": "secret", "payload": {"id": "1", "value": 1234}}, "Sin clave."),
+    ],
+)
+def test_la_clave_escrita_en_la_interfaz_llega_a_quien_la_pidio(
+    message: dict[str, Any], reply: str
+) -> None:
+    desk = ApprovalDesk()
+    pipeline = Pipeline(
+        PatientListener(), SecretAskingResponder(desk), DemoSpeaker(0), approvals=desk
+    )
+    with (
+        TestClient(create_app(TOKEN, pipeline)) as client,
+        client.websocket_connect(WS_URL) as ws,
+    ):
+        skip_greeting(ws)
+        send(ws, "activate")
+        request = until(ws, "secret_request")
+        assert request == {"id": "1", "summary": "modificar el registro", "detail": ""}
+
+        ws.send_json({"v": PROTOCOL_VERSION, **message})
+
+        assert until(ws, "secret_resolved") == {"id": "1"}
+        assert until(ws, "assistant_delta") == {"text": reply}
+        send(ws, "cancel")
+
+
 def test_mensaje_desconocido_devuelve_error(client: TestClient) -> None:
     with client.websocket_connect(WS_URL) as ws:
         skip_greeting(ws)

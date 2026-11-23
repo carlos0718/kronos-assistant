@@ -8,6 +8,7 @@ import {
   setFolderAccess,
 } from "../../engine/api";
 import { Group, Row, Slider, Toggle, Value } from "../controls";
+import { SecretKeyGroup } from "./SecretKeyGroup";
 import "./PermissionsTab.css";
 
 const PERMISSION_LEVELS = [
@@ -180,14 +181,7 @@ export function PermissionsTab({ connection }: { connection: Connection | null }
         </ul>
       </Group>
 
-      <Group title="Clave secreta">
-        <Row
-          label="Clave del nivel crítico"
-          text="La verifica la app, nunca el modelo. También sirve para bajar una acción del nivel crítico."
-        >
-          <Value>Sin configurar</Value>
-        </Row>
-      </Group>
+      <SecretKeyGroup connection={connection} />
     </>
   );
 }

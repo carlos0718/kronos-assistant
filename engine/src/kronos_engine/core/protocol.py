@@ -24,6 +24,9 @@ class ServerMessage(StrEnum):
     # Kronos pide que el usuario apruebe una acción delicada; después avisa cómo terminó.
     CONFIRMATION_REQUEST = "confirmation_request"
     CONFIRMATION_RESOLVED = "confirmation_resolved"
+    # Kronos pide la clave secreta, que se escribe en pantalla; después avisa que se cerró.
+    SECRET_REQUEST = "secret_request"
+    SECRET_RESOLVED = "secret_resolved"
     ERROR = "error"
 
 
@@ -35,3 +38,6 @@ class ClientMessage(StrEnum):
     # El usuario contestó una confirmación con un clic.
     CONFIRM = "confirm"
     DENY = "deny"
+    # El usuario escribió la clave secreta (`value`) o canceló el pedido.
+    SECRET = "secret"
+    SECRET_CANCEL = "secret_cancel"

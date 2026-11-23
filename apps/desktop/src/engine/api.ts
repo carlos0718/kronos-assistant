@@ -160,3 +160,20 @@ export async function setModel(
 export async function setModelKey(connection: Connection, key: string): Promise<void> {
   await request(connection, "/model/key", { method: "PUT", body: JSON.stringify({ provider: "anthropic", key }) });
 }
+
+/** Si hay clave secreta del nivel crítico y si está bloqueado por intentos fallidos. La clave nunca vuelve. */
+export type SecretKeyStatus = { is_set: boolean; locked_for: number };
+
+export async function getSecretKey(connection: Connection): Promise<SecretKeyStatus> {
+  return (await request(connection, "/secret-key")).json();
+}
+
+/** Pone la primera clave, o cambia la que hay (en ese caso hace falta la actual). Falla con el motivo. */
+export async function setSecretKey(connection: Connection, next: string, current?: string): Promise<void> {
+  await request(connection, "/secret-key", { method: "PUT", body: JSON.stringify({ new: next, current }) });
+}
+
+/** Borra la clave; hace falta la actual. Falla con el motivo. */
+export async function removeSecretKey(connection: Connection, current: string): Promise<void> {
+  await request(connection, "/secret-key/remove", { method: "POST", body: JSON.stringify({ current }) });
+}

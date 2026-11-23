@@ -18,6 +18,9 @@ export const STATE_LABEL: Record<AssistantState, string> = {
 /** Una acción delicada que Kronos quiere hacer y espera que el usuario apruebe. */
 export type Confirmation = { id: string; summary: string; detail: string };
 
+/** Una acción crítica que Kronos quiere hacer y espera la clave secreta. */
+export type SecretRequest = { id: string; summary: string; detail: string };
+
 // Lo que informa la parte Rust de la app sobre el proceso del motor.
 type EngineStatus =
   | { status: "starting" }
@@ -30,6 +33,7 @@ export function useEngine() {
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [secretRequest, setSecretRequest] = useState<SecretRequest | null>(null);
   const [connection, setConnection] = useState<Connection | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
 
@@ -46,7 +50,10 @@ export function useEngine() {
           setError(null);
           setState(message.payload.state);
           // Si la conversación terminó, ya no hay nada que aprobar.
-          if (message.payload.state === "idle") setConfirmation(null);
+          if (message.payload.state === "idle") {
+            setConfirmation(null);
+            setSecretRequest(null);
+          }
           break;
         case "transcript_final":
           // Empieza un intercambio nuevo. Hasta acá se sigue viendo la respuesta
@@ -62,6 +69,12 @@ export function useEngine() {
           break;
         case "confirmation_resolved":
           setConfirmation((current) => (current?.id === message.payload.id ? null : current));
+          break;
+        case "secret_request":
+          setSecretRequest(message.payload);
+          break;
+        case "secret_resolved":
+          setSecretRequest((current) => (current?.id === message.payload.id ? null : current));
           break;
         case "error":
           setError(message.payload.message);
@@ -85,6 +98,7 @@ export function useEngine() {
           setState("disconnected");
           setConnection(null);
           setConfirmation(null);
+          setSecretRequest(null);
         }
       };
     }
@@ -126,5 +140,5 @@ export function useEngine() {
     setReply("");
   }, []);
 
-  return { state, transcript, reply, error, confirmation, connection, send, clear };
+  return { state, transcript, reply, error, confirmation, secretRequest, connection, send, clear };
 }

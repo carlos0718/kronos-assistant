@@ -31,7 +31,8 @@ pub fn run() {
             engine::engine_status,
             overlay::summon_overlay,
             overlay::show_overlay,
-            overlay::hide_overlay
+            overlay::hide_overlay,
+            overlay::focus_overlay
         ])
         .setup(|app| {
             tray::create(app, SUMMON_SHORTCUT_LABEL)?;

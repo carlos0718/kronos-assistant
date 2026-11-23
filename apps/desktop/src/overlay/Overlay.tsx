@@ -5,6 +5,7 @@ import { STATE_LABEL, useEngine } from "../engine/useEngine";
 import { Orb } from "../shared/Orb";
 import { useChatShown } from "../shared/useChatShown";
 import { Confirm } from "./Confirm";
+import { SecretPrompt } from "./SecretPrompt";
 import "./Overlay.css";
 
 // Tiempo que el overlay queda visible después de volver a inactivo: da para
@@ -16,7 +17,7 @@ const HIDE_AFTER_ERROR_MS = 5000;
 const LEAVE_MS = 250;
 
 export function Overlay() {
-  const { state, transcript, reply, error, confirmation, send, clear } = useEngine();
+  const { state, transcript, reply, error, confirmation, secretRequest, send, clear } = useEngine();
   const [leaving, setLeaving] = useState(false);
   const [chatShown, setChatShown] = useChatShown();
   const [summons, setSummons] = useState(0);
@@ -73,7 +74,7 @@ export function Overlay() {
   const said = Boolean(transcript || reply);
   // Con el texto oculto se siguen mostrando la pregunta para aprobar y los
   // errores: sin ellos el usuario no podría contestar ni sabría qué pasó.
-  const hasText = (chatShown && said) || Boolean(error || confirmation);
+  const hasText = (chatShown && said) || Boolean(error || confirmation || secretRequest);
 
   return (
     <main className="overlay" data-leaving={leaving}>
@@ -81,7 +82,16 @@ export function Overlay() {
         <section className="bubble" aria-live="polite">
           {chatShown && transcript && <p className="bubble-user">“{transcript}”</p>}
           {/* Mientras hay algo que aprobar, la pregunta ocupa el lugar de la respuesta. */}
-          {confirmation ? (
+          {secretRequest ? (
+            <SecretPrompt
+              request={secretRequest}
+              onSubmit={(secret) =>
+                secret === null
+                  ? send("secret_cancel", { id: secretRequest.id })
+                  : send("secret", { id: secretRequest.id, value: secret })
+              }
+            />
+          ) : confirmation ? (
             <Confirm
               confirmation={confirmation}
               onAnswer={(approved) => send(approved ? "confirm" : "deny", { id: confirmation.id })}
