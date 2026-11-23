@@ -20,6 +20,11 @@ type ServerPayloads = {
   confirmation_request: { id: string; summary: string; detail: string };
   // La pregunta se cerró: por voz, con un clic o porque se cortó la conversación.
   confirmation_resolved: { id: string; approved: boolean };
+  // Kronos pide la clave secreta de una acción crítica. Se escribe en pantalla:
+  // nunca se dicta. `summary` dice qué acción se va a autorizar.
+  secret_request: { id: string; summary: string; detail: string };
+  // El pedido se cerró: se escribió, se canceló, venció o se cortó la conversación.
+  secret_resolved: { id: string };
   error: { message: string };
 };
 
@@ -30,6 +35,8 @@ export const SERVER_MESSAGES = [
   "assistant_delta",
   "confirmation_request",
   "confirmation_resolved",
+  "secret_request",
+  "secret_resolved",
   "error",
 ] as const satisfies readonly (keyof ServerPayloads)[];
 
@@ -39,5 +46,6 @@ export type ServerMessage = {
 }[keyof ServerPayloads];
 
 // `confirm` y `deny` contestan una confirmación; llevan el `id` de la pregunta.
-export const CLIENT_MESSAGES = ["activate", "cancel", "confirm", "deny"] as const;
+// `secret` lleva la clave escrita (`value`) y `secret_cancel` cierra el pedido; los dos llevan el `id`.
+export const CLIENT_MESSAGES = ["activate", "cancel", "confirm", "deny", "secret", "secret_cancel"] as const;
 export type ClientMessage = (typeof CLIENT_MESSAGES)[number];

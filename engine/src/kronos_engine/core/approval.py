@@ -23,6 +23,12 @@ class Approver(Protocol):
         ...
 
 
+class SecretAsker(Protocol):
+    async def ask_secret(self, request: ApprovalRequest) -> str | None:
+        """Le pide al usuario que escriba la clave secreta. `None` si cancela o no contesta."""
+        ...
+
+
 class ApprovalDesk:
     """El lugar fijo donde se piden las confirmaciones.
 
@@ -32,15 +38,22 @@ class ApprovalDesk:
 
     def __init__(self) -> None:
         self._approver: Approver | None = None
+        self._secret_asker: SecretAsker | None = None
 
-    def connect(self, approver: Approver) -> None:
+    def connect(self, approver: Approver, secret_asker: SecretAsker | None = None) -> None:
         self._approver = approver
+        self._secret_asker = secret_asker
 
     async def confirm(self, request: ApprovalRequest) -> bool:
         # Sin nadie a quien preguntarle, la respuesta es no.
         if self._approver is None:
             return False
         return await self._approver.confirm(request)
+
+    async def ask_secret(self, request: ApprovalRequest) -> str | None:
+        if self._secret_asker is None:
+            return None
+        return await self._secret_asker.ask_secret(request)
 
 
 # El reconocedor de voz a veces transcribe un «no» corto como «yeah» o «north»

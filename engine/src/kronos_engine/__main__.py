@@ -103,6 +103,7 @@ def main() -> None:
         parts.folder_access,
         parts.model,
         parts.recognizer,
+        parts.secret_key,
     )
     config = uvicorn.Config(app, log_level="warning", ws="websockets-sansio")
     uvicorn.Server(config).run(sockets=[sock])

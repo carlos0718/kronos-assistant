@@ -88,6 +88,25 @@ pub fn hide_overlay(app: AppHandle) {
     }
 }
 
+/// Deja que el overlay reciba el teclado, o se lo quita.
+///
+/// De fábrica no recibe foco, para no robárselo a lo que el usuario está
+/// haciendo. Mientras Kronos le pide la clave secreta sí tiene que recibirlo,
+/// porque se escribe ahí.
+#[tauri::command]
+pub fn focus_overlay(app: AppHandle, focus: bool) {
+    let Some(window) = app.get_webview_window(LABEL) else {
+        return;
+    };
+    if let Err(e) = window.set_focusable(focus) {
+        eprintln!("No se pudo cambiar el foco del overlay: {e}");
+        return;
+    }
+    if focus {
+        let _ = window.set_focus();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::top_for;

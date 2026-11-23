@@ -94,7 +94,7 @@ def test_una_accion_normal_no_pide_aprobacion() -> None:
 
 
 def test_la_aprobacion_del_usuario_no_alcanza_para_lo_critico() -> None:
-    # El nivel 3 pide la clave secreta, que todavía no existe: un «sí» no la reemplaza.
+    # El nivel 3 pide la clave secreta: un «sí» no la reemplaza.
     tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
     approver = FakeApprover(True)
 
@@ -230,3 +230,100 @@ def test_sin_depuracion_el_motivo_no_queda_en_el_registro(
 
     assert "no se pudo hacer" in caplog.text
     assert "Diario íntimo" not in caplog.text
+
+
+class FakeVault:
+    def __init__(self, key: str | None = "clave-correcta", locked: int = 0) -> None:
+        self._key = key
+        self._locked = locked
+        self.tried: list[str] = []
+
+    def is_set(self) -> bool:
+        return self._key is not None
+
+    def locked_for(self) -> int:
+        return self._locked
+
+    def verify(self, attempt: str) -> bool:
+        self.tried.append(attempt)
+        return attempt == self._key
+
+
+class FakeAsker:
+    def __init__(self, typed: str | None) -> None:
+        self._typed = typed
+        self.asked: list[ApprovalRequest] = []
+
+    async def ask_secret(self, request: ApprovalRequest) -> str | None:
+        self.asked.append(request)
+        return self._typed
+
+
+def critical_gate(tool: FakeTool, vault: FakeVault, asker: FakeAsker | None) -> PermissionGate:
+    return PermissionGate([tool], FakeApprover(True), vault, asker)
+
+
+def test_lo_critico_se_ejecuta_con_la_clave_correcta() -> None:
+    tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
+    asker = FakeAsker("clave-correcta")
+
+    result = run(critical_gate(tool, FakeVault(), asker), ToolCall("edit_registry", {"k": 1}))
+
+    assert result == "edit_registry hecho"
+    assert asker.asked == [ApprovalRequest("edit_registry", "hacer edit_registry con {'k': 1}")]
+
+
+def test_lo_critico_no_se_ejecuta_con_una_clave_incorrecta() -> None:
+    tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
+
+    result = run(critical_gate(tool, FakeVault(), FakeAsker("otra")), ToolCall("edit_registry"))
+
+    assert tool.ran == []
+    assert "clave" in result.lower()
+    assert "no se ejecutó" in result.lower()
+
+
+def test_lo_critico_no_se_ejecuta_si_el_usuario_cancela() -> None:
+    tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
+    vault = FakeVault()
+
+    result = run(critical_gate(tool, vault, FakeAsker(None)), ToolCall("edit_registry"))
+
+    assert tool.ran == []
+    assert vault.tried == []
+    assert "no se ejecutó" in result.lower()
+
+
+def test_sin_clave_configurada_lo_critico_no_se_ejecuta_ni_se_pregunta() -> None:
+    tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
+    asker = FakeAsker("lo-que-sea")
+
+    result = run(critical_gate(tool, FakeVault(key=None), asker), ToolCall("edit_registry"))
+
+    assert tool.ran == []
+    assert asker.asked == []
+    assert "no hay una clave secreta configurada" in result.lower()
+
+
+def test_con_el_nivel_critico_bloqueado_no_se_pregunta() -> None:
+    tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
+    asker = FakeAsker("clave-correcta")
+
+    result = run(critical_gate(tool, FakeVault(locked=120), asker), ToolCall("edit_registry"))
+
+    assert tool.ran == []
+    assert asker.asked == []
+    assert "bloqueado" in result.lower()
+
+
+def test_el_modelo_no_ve_la_clave_ni_se_registra(caplog: pytest.LogCaptureFixture) -> None:
+    tool = FakeTool("edit_registry", PermissionLevel.CRITICAL)
+
+    with caplog.at_level(logging.DEBUG):
+        result = run(
+            critical_gate(tool, FakeVault(), FakeAsker("intento-secreto")),
+            ToolCall("edit_registry"),
+        )
+
+    assert "intento-secreto" not in result
+    assert "intento-secreto" not in caplog.text

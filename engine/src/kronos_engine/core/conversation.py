@@ -16,6 +16,7 @@ from kronos_engine.core.approval import ApprovalDesk
 from kronos_engine.core.confirming import Confirmations
 from kronos_engine.core.farewell import is_farewell
 from kronos_engine.core.protocol import AssistantState, ServerMessage
+from kronos_engine.core.secret_prompt import SecretPrompts
 from kronos_engine.core.sentences import SentenceSplitter
 from kronos_engine.core.speaking import SpokenReply
 from kronos_engine.core.timing import Clock, Step, TurnTimer
@@ -112,8 +113,10 @@ class Conversation:
             self._set_state,
             emit,
         )
+        # La clave secreta se escribe en pantalla: no se dicta ni queda en la transcripción.
+        self.secret_prompts = SecretPrompts(self._ask_aloud, self._set_state, emit)
         if pipeline.approvals:
-            pipeline.approvals.connect(self.confirmations)
+            pipeline.approvals.connect(self.confirmations, self.secret_prompts)
 
     async def activate(self, heard: str = "") -> None:
         """Empieza una conversación. Si había una en curso, la reemplaza.

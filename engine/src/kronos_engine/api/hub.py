@@ -57,9 +57,19 @@ class Hub:
         elif type_ in (ClientMessage.CONFIRM, ClientMessage.DENY):
             asked = payload.get("id") if isinstance(payload, dict) else None
             self.conversation.confirmations.answer(str(asked), type_ == ClientMessage.CONFIRM)
+        elif type_ in (ClientMessage.SECRET, ClientMessage.SECRET_CANCEL):
+            self._answer_secret(type_ == ClientMessage.SECRET, payload)
         else:
             return False
         return True
+
+    def _answer_secret(self, typed: bool, payload: object) -> None:
+        data = payload if isinstance(payload, dict) else {}
+        value = data.get("value")
+        # La clave no se registra: ni acá ni en ningún mensaje de error.
+        self.conversation.secret_prompts.answer(
+            str(data.get("id")), value if typed and isinstance(value, str) else None
+        )
 
     async def broadcast(self, msg: dict[str, Any]) -> None:
         for client in list(self._clients):

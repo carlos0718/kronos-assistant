@@ -15,6 +15,7 @@ from kronos_engine.core.model_choice import checked as checked_choice
 from kronos_engine.core.profile import Profile
 from kronos_engine.core.recognizer import DEFAULT_RECOGNIZER
 from kronos_engine.core.recognizer import checked as checked_recognizer
+from kronos_engine.core.secret import MIN_LENGTH, SecretKeyError
 from kronos_engine.core.voices import UnknownVoiceError, VoiceInfo
 
 DEMO_TRANSCRIPT = "Kronos, ¿estás ahí?"
@@ -160,6 +161,36 @@ class DemoFolderAccess:
 
     def set(self, access: FolderAccess) -> None:
         self._access = checked(access)
+
+
+class DemoSecretKey:
+    """La clave secreta, solo en la memoria y sin bloqueo: el modo demo no protege nada."""
+
+    def __init__(self) -> None:
+        self._key: str | None = None
+
+    def is_set(self) -> bool:
+        return self._key is not None
+
+    def locked_for(self) -> int:
+        return 0
+
+    def verify(self, attempt: str) -> bool:
+        return self._key is not None and attempt == self._key
+
+    def set(self, new: str) -> None:
+        if len(new) < MIN_LENGTH:
+            raise SecretKeyError(f"La clave necesita al menos {MIN_LENGTH} caracteres.")
+        self._key = new
+
+    def change(self, current: str, new: str) -> None:
+        self.remove(current)
+        self.set(new)
+
+    def remove(self, current: str) -> None:
+        if not self.verify(current):
+            raise SecretKeyError("La clave actual no es correcta.")
+        self._key = None
 
 
 class DemoVoices:

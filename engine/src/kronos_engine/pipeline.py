@@ -15,6 +15,7 @@ from kronos_engine.core.demo import (
     DemoModel,
     DemoProfile,
     DemoRecognizer,
+    DemoSecretKey,
     DemoVoices,
     DemoWakeWord,
     demo_pipeline,
@@ -25,6 +26,7 @@ from kronos_engine.core.follow_up import FollowUpControl
 from kronos_engine.core.model_choice import ModelControl
 from kronos_engine.core.profile import ProfileControl
 from kronos_engine.core.recognizer import RecognizerControl
+from kronos_engine.core.secret import SecretKeyControl
 from kronos_engine.core.standby import Standby
 from kronos_engine.core.tools import Tool
 from kronos_engine.core.voices import VoiceControl
@@ -71,6 +73,7 @@ class Parts:
     folder_access: FolderAccessControl
     model: ModelControl
     recognizer: RecognizerControl
+    secret_key: SecretKeyControl
 
 
 def available_tools(
@@ -115,6 +118,7 @@ def build() -> Parts:
             DemoFolderAccess(),
             DemoModel(),
             DemoRecognizer(),
+            DemoSecretKey(),
         )
 
     # Se importan acá para que el modo demo no dependa de las librerías de voz.
@@ -133,6 +137,7 @@ def build() -> Parts:
     from kronos_engine.llm.ollama import DEFAULT_URL, OllamaProvider
     from kronos_engine.llm.switching import SwitchingProvider
     from kronos_engine.permissions.gate import PermissionGate
+    from kronos_engine.permissions.secret_key import SecretKey
     from kronos_engine.platform.windows.credentials import WindowsCredentials
     from kronos_engine.voice.catalog import DEFAULT_VOICES
     from kronos_engine.voice.elevenlabs import KEY_ENV
@@ -186,7 +191,11 @@ def build() -> Parts:
     # El modelo propone las acciones; el control de permisos decide si se
     # ejecutan y, para las delicadas, le pregunta al usuario.
     approvals = ApprovalDesk()
-    tools = PermissionGate(available_tools(folder_access.get, ModelChooser(model)), approvals)
+    # Las acciones críticas piden la clave secreta, que se escribe en pantalla.
+    secret_key = SecretKey(WindowsCredentials())
+    tools = PermissionGate(
+        available_tools(folder_access.get, ModelChooser(model)), approvals, secret_key, approvals
+    )
 
     def current_instructions() -> str:
         # Se lee en cada respuesta: el usuario puede cambiar su perfil sin reiniciar.
@@ -232,4 +241,5 @@ def build() -> Parts:
         folder_access,
         choice,
         stt_choice,
+        secret_key,
     )
