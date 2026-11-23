@@ -9,7 +9,14 @@ from collections.abc import Sequence
 
 from kronos_engine.core.approval import ApprovalRequest, Approver, SecretAsker
 from kronos_engine.core.secret import SecretVault
-from kronos_engine.core.tools import PermissionLevel, Tool, ToolCall, ToolError, ToolSpec
+from kronos_engine.core.tools import (
+    GradedTool,
+    PermissionLevel,
+    Tool,
+    ToolCall,
+    ToolError,
+    ToolSpec,
+)
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +67,17 @@ class PermissionGate:
             tool.spec for tool in self._tools.values() if tool.level < PermissionLevel.FORBIDDEN
         ]
 
+    @staticmethod
+    def _level(tool: Tool, call: ToolCall) -> PermissionLevel:
+        # El nivel de fábrica es el piso: una acción graduada solo puede subirlo.
+        if isinstance(tool, GradedTool):
+            return max(tool.level, tool.level_for(call.arguments))
+        return tool.level
+
+    @staticmethod
+    def _detail(tool: Tool, call: ToolCall) -> str:
+        return tool.detail_for(call.arguments) if isinstance(tool, GradedTool) else ""
+
     async def run(self, call: ToolCall) -> str:
         tool = self._tools.get(call.name)
         if tool is None:
@@ -82,11 +100,12 @@ class PermissionGate:
 
     async def _refusal(self, tool: Tool, call: ToolCall) -> str | None:
         """Por qué la acción no se ejecuta, o `None` si puede ejecutarse."""
-        if tool.level >= PermissionLevel.FORBIDDEN:
+        level = self._level(tool, call)
+        if level >= PermissionLevel.FORBIDDEN:
             return self._reject(call, "prohibida", _FORBIDDEN)
-        if tool.level >= PermissionLevel.CRITICAL:
+        if level >= PermissionLevel.CRITICAL:
             return await self._secret_refusal(tool, call)
-        if tool.level >= PermissionLevel.SENSITIVE:
+        if level >= PermissionLevel.SENSITIVE:
             if self._approver is None:
                 return self._reject(call, "nivel 2, sin cómo pedir aprobación", _NO_APPROVER)
             try:
@@ -95,7 +114,7 @@ class PermissionGate:
                 # Ya se sabe que no se puede: no se molesta al usuario con la pregunta.
                 log.debug("Motivo: %s", exc)
                 return self._reject(call, "no se puede hacer", f"No se pudo: {exc}")
-            request = ApprovalRequest(call.name, summary)
+            request = ApprovalRequest(call.name, summary, self._detail(tool, call))
             if not await self._approver.confirm(request):
                 return self._reject(call, "el usuario no la aprobó", _DENIED)
             log.info("Acción %s aprobada por el usuario.", call.name)
@@ -114,7 +133,9 @@ class PermissionGate:
         except ToolError as exc:
             log.debug("Motivo: %s", exc)
             return self._reject(call, "no se puede hacer", f"No se pudo: {exc}")
-        typed = await self._secret_asker.ask_secret(ApprovalRequest(call.name, summary))
+        typed = await self._secret_asker.ask_secret(
+            ApprovalRequest(call.name, summary, self._detail(tool, call))
+        )
         if not typed:
             return self._reject(call, "el usuario no dio la clave", _NO_SECRET_GIVEN)
         if not self._vault.verify(typed):

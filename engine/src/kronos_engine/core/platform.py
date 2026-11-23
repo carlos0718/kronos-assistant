@@ -43,6 +43,24 @@ OPENABLE_SUFFIXES = frozenset(
 )
 
 
+@dataclass(frozen=True)
+class CommandResult:
+    """Lo que dejó un comando de terminal."""
+
+    output: str  # Lo que escribió, sin recortar.
+    exit_code: int | None  # `None` si se cortó por tardar demasiado.
+
+
+class Shell(Protocol):
+    async def run(self, command: str, seconds: float) -> CommandResult:
+        """Ejecuta el comando en la terminal del usuario, sin permisos de administrador.
+
+        Si pasan `seconds` segundos lo corta (a él y a lo que haya lanzado) y
+        devuelve lo que alcanzó a escribir, con `exit_code` en `None`.
+        """
+        ...
+
+
 class Folder(Enum):
     """Las carpetas que todo usuario tiene, estén donde estén en el disco."""
 

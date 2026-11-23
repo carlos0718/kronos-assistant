@@ -88,12 +88,14 @@ def available_tools(
     from kronos_engine.tools.clock import CurrentTimeTool
     from kronos_engine.tools.files import OpenFileTool
     from kronos_engine.tools.folders import OpenFolderTool
+    from kronos_engine.tools.terminal import RunCommandTool
     from kronos_engine.tools.weather import WeatherTool
 
     # El clima consulta Open-Meteo por internet: anda con cualquier modelo.
     tools: list[Tool] = [CurrentTimeTool(), WeatherTool()]
     if sys.platform == "win32":
         from kronos_engine.platform.windows.apps import WindowsPlatform
+        from kronos_engine.platform.windows.shell import PowerShell
 
         platform = WindowsPlatform()
         platform.preload()
@@ -102,6 +104,7 @@ def available_tools(
             CloseAppTool(platform),
             OpenFolderTool(platform, folder_access, chooser),
             OpenFileTool(platform, folder_access, chooser),
+            RunCommandTool(PowerShell()),
         ]
     return tools
 
